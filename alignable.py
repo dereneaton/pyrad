@@ -1,0 +1,831 @@
+import numpy as np
+import os
+import sys
+import glob
+import subprocess
+import multiprocessing
+import gzip
+from itertools import izip
+from copy import copy
+from potpour import *
+from consensdp import unhetero, uplow, breakalleles
+from itertools import chain, groupby
+from cluster_cons7_shuf import comp
+
+
+def unstruct(amb):
+    amb = amb.upper()
+    " returns bases from ambiguity code"
+    D = {"R":["G","A"],
+         "K":["G","T"],
+         "S":["G","C"],
+         "Y":["T","C"],
+         "W":["T","A"],
+         "M":["C","A"],
+         "A":["A","A"],
+         "T":["T","T"],
+         "G":["G","G"],
+         "C":["C","C"],
+         "N":["N","N"],
+         "-":["-","-"]}
+    return D.get(amb)
+
+
+def most_common(L):
+    return max(groupby(sorted(L)), key=lambda(x, v):(len(list(v)),-L.index(x)))[0]
+
+
+def stack(D):
+    """
+    from list of bases at a site D,
+    returns an ordered list of counts of bases
+    """
+    L = len(D)
+    counts = []
+    for i in range(len(D[0])):
+        R=Y=S=W=K=M=0
+        for nseq in range(L):
+            R += D[nseq][i].count("R")
+            Y += D[nseq][i].count("Y")
+            S += D[nseq][i].count("S")
+            W += D[nseq][i].count("W")
+            K += D[nseq][i].count("K")
+            M += D[nseq][i].count("M")
+        counts.append( [R,Y,S,W,K,M] )
+    return counts
+
+
+def countpolys(seqs):
+    t = [tuple(seq) for seq in seqs]
+    return max([sum(i) for i in stack(t)])
+
+
+def alignfast(WORK,pronum,names,seqs,muscle):
+    ST = "\n".join('>'+i+'\n'+j[0] for i,j in zip(names,seqs))
+    """
+    if ST is very large it needs to be written to file, otherwise
+    the process can just be piped
+    """
+    if len(ST) > 100000:
+        fstring = WORK+".tempalign_"+pronum
+        with open(fstring,'w') as inST:
+            print >>inST, ST
+        cmd = muscle+" -quiet -in "+fstring #+" -out "+ostring
+    else:
+        cmd = "/bin/echo '"+ST+"' | "+muscle+" -quiet -in -"
+    fout = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    ff = fout.stdout.read()
+    #TODO: future try fout.communicate()[0]
+    return ff
+
+
+def polyaccept(maxpoly, MAXpoly, ln):
+    passed = 1
+    if 'p' in str(MAXpoly):
+        if maxpoly > ln*float(MAXpoly.replace('p','')):
+            passed = 0
+    else:
+        MAXpoly = int(MAXpoly)
+        if maxpoly > MAXpoly:
+            passed = 0
+    if passed:
+        return 1
+
+
+def sortalign(stringnames):
+    G = stringnames.split("\n>")
+    GG = [i.split("\n")[0].replace(">","")+"\n"+"".join(i.split('\n')[1:]) for i in G]
+    aligned = [i.split("\n") for i in GG]
+    nn = [">"+i[0] for i in aligned]
+    seqs = [i[1] for i in aligned]
+    return nn,seqs
+
+
+def trimmer(overhang, nn, sss, datatype, minspecies):
+    " overhang trim or keep "
+    FM1 = SM1 = None
+    FM2 = SM2 = None
+
+    " only trim if more than three samples "
+    if minspecies > 3:
+        if 'pair' in datatype:
+            firsts = [i.split("X")[0] for i in sss]
+            seconds = [i.split("X")[-1] for i in sss]
+
+            "treat each read separately, or do the total read?"
+            if len(overhang) == 4:
+                a,b,c,d = overhang
+            elif len(overhang) == 2:
+                a,c = overhang
+                b=a; d=c
+
+            "trim 1st read "
+            leftlimit = [FF(i,'min') for i in firsts]
+            rightlimit = [FF(i,'max') for i in firsts]
+
+            " trim1 means at least four samples have data at that site"
+            " trim2 means that all samples with data have data at that site"
+            if a == 1:
+                " trim1 1st left overhang "
+                FM1 = min([i for i in xrange(len(firsts[0])) if [j<=i for j in leftlimit].count(True) > 3])
+            elif a == 2:
+                try: FM1 = min([i for i in xrange(len(firsts[0])) if [j<=i for j in leftlimit].count(True) == len(nn)])
+                except ValueError: FM1 = 1
+                        
+            if b == 1:
+                " trim 1st right overhang "
+                SM1 = max([i for i in xrange(len(firsts[0])) if [j>=i for j in rightlimit].count(True) > 3])
+            elif b == 2:
+                try: SM1 = max([i for i in xrange(len(firsts[0])) if [j>=i for j in rightlimit].count(True) == len(nn)])
+                except ValueError: SM1 = 1
+
+            "trim 2nd read "
+            leftlimit = [FF(i,'min') for i in seconds]
+            rightlimit = [FF(i,'max') for i in seconds]
+
+            if c == 1:
+                " trim1 2nd left overhang "
+                try: FM2 = min([i for i in xrange(len(seconds[0])) if [j<=i for j in leftlimit].count(True) > 3])
+                except ValueError:
+                    " no sites where 4 samples have data "
+                    FM2 = 1
+                    empty2 = 1
+                        
+            elif c == 2:
+                " trim1 2nd left overhang "
+                try: FM2 = min([i for i in xrange(len(seconds[0])) if [j<=i for j in leftlimit].count(True) == len(nn)])
+                except ValueError:
+                    " no sites where all samples have data "
+                    FM2 = 1
+                    empty2 = 1
+
+            if d == 1:
+                " trim 2nd right overhang "
+                SM2 = max([i for i in xrange(len(seconds[0])) if [j>=i for j in rightlimit].count(True) > 3])
+            elif d == 2:
+                SM2 = max([i for i in xrange(len(seconds[0])) if [j>=i for j in rightlimit].count(True) == len(nn)])+1
+
+            "put pair back together"
+            sss=[i+"XXXX"+j for i,j in zip(firsts,seconds)]
+                        
+        else:
+            leftlimit = [FF(i,'min') for i in sss]
+            rightlimit = [FF(i,'max') for i in sss]
+
+            " trim left overhang "
+            if overhang[0] == 1:
+                FM1 = min([i for i in xrange(len(sss[0])) if [j<=i for j in leftlimit].count(True) > 3])
+            elif overhang[0] == 2:
+                FM1 = max(leftlimit)
+            else:
+                FM1 = min(leftlimit)
+                        
+            " trim right overhang "
+            if overhang[1] == 1:
+                SM1 = max([i for i in xrange(len(sss[0])) if [j>=i for j in rightlimit].count(True) > 3])+1
+            elif overhang[1] == 2:
+                SM1 = min(rightlimit)+1
+            else:
+                SM1 = max(rightlimit)+1
+    return [FM1, FM2, SM1, SM2]
+
+
+
+
+def alignFUNC(infile, minspecies, ingroup,
+              MAXpoly, outname, s1, s2,
+              muscle, exclude,
+              overhang, WORK,
+              CUT, a1, a2, datatype, longname):
+
+    " TODO: resolve ambiguous cutters "
+    if "," in CUT:
+        CUT1,CUT2 = CUT.split(",")
+    else:
+        CUT1 = CUT
+        CUT2 = CUT1
+
+    " open clust file "
+    f = open(infile)
+    " assign number to files for this process "
+    pronum = str("".join(infile.split("_")[-1]))    
+    " create temp out files for aligned clusters "
+    aout = open(WORK+".align_"+pronum,'w')
+    nout = open(WORK+".not_"+pronum,'w')
+    " create counters "
+    locus = paralog = g4 = dups = 0
+    " read in clust file 2 lines at a time"
+    k = izip(*[iter(f)]*2)
+    while 1:
+        D = P = S = I = notes = ""
+        try: d = k.next()
+        except StopIteration : break
+        locus += 1
+        names = []
+        cnames = []
+        onames = []
+        seqs = []
+        nameiter = 0
+        while d[0] != "//\n":
+            "record names and seqs, remove # at end"
+            "record the name into locus name. "
+            nam = "_".join(d[0].split(">")[1].split("_")[:-2])
+            if nam not in exclude:
+                cnames.append("_".join(d[0].split(">")[1].split("_")[:-2]))
+                names.append("_".join(d[0].split(">")[1].split("_")[:-2])+"_"+str(nameiter))
+                onames.append(d[0].strip().split("_")[-1])
+                seqs.append([d[1].strip()])
+            d = k.next()
+            nameiter += 1
+
+        " apply duplicate filter "
+        if len(cnames) != len(set(cnames)):      ## no grouping un-clustered copies from same taxon
+            dups += 1                            ## record duplicates in loci
+            D = '%D'
+
+        " apply minsamp filter "
+        if len([i for i in cnames if i in ingroup])>(minspecies-1):  ## too few ingroup samples in locus
+            g4 += 1
+
+            "align read1 separate from read2"
+            if 'pair' in datatype:  
+                firsts = [[i[0].split("XXXX")[0]] for i in seqs]
+                seconds = [[i[0].split("XXXX")[1]] for i in seqs]
+
+                "align first reads"
+                stringnames = alignfast(WORK,pronum,names,firsts,muscle)
+                nn, ss1 = sortalign(stringnames)
+                D1 = {}
+                for i in range(len(nn)):
+                    D1[nn[i]] = ss1[i]
+                "reorder keys by name"
+                keys = D1.keys()
+                keys.sort(key=lambda x:int(x.split("_")[-1]),reverse=True)
+
+                "align second reads"
+                stringnames = alignfast(WORK,pronum,names,seconds,muscle)
+                nn, ss2 = sortalign(stringnames)
+                D2 = {}
+                for i in range(len(nn)):
+                    D2[nn[i]] = ss2[i]
+                nn = keys 
+                sss = [D1[key]+"XXXX"+D2[key] for key in keys]
+            else:
+                "align reads"
+                stringnames = alignfast(WORK,pronum,names,seqs,muscle)
+                if len(stringnames) < 1:
+                    print 'aaaaaaah'
+                    print stringnames
+                nn, sss = sortalign(stringnames)
+                
+
+            " now strip off cut sites "
+            if "merge" in datatype:
+                sss = [i[len(CUT1):-len(CUT2)] for i in sss]
+            #elif datatype == 'gbs':
+            #    sss = [i[len(CUT1):] for i in sss]
+            elif ("c1" in onames) or ("pair" in onames):
+                sss = [i[len(CUT1):-len(CUT2)] for i in sss]
+            else:
+                sss = [i[len(CUT1):] for i in sss]
+
+            " apply number of shared heteros paralog filter "
+            nn = ["_".join(i.split("_")[:-1]) for i in nn]
+            maxpoly = countpolys(sss)               
+            if not D:
+                " apply paralog filter "
+                if not polyaccept(maxpoly, MAXpoly, len(nn)):
+                    P = '%P'
+
+            zz = zip(nn,sss)
+
+            " record variable sites "
+            bases = []
+            for i in range(len(sss[0])):      ## create list of bases at each site
+                site = [s[i] for s in sss]
+                bases.append(site)
+            basenumber = 0
+            snpsite = [" "]*len(sss[0])
+
+            " put in split for pairs "
+            for i in range(len(sss[0])):
+                if sss[0][i] == "X":
+                    snpsite[i] = 'X'
+
+            " record a string for variable sites in snpsite"
+            for site in bases:
+                reals = [i for i in site if i not in list("N-")]
+                if len(set(reals)) > 1:                                ## if site is variable
+                    " convert ambiguity bases to reals "
+                    for i in xrange(len(reals)):
+                        if reals[i] in list("RWMSYK"):
+                            for j in unstruct(reals[i]):
+                                reals.append(j)
+                    reals = [i for i in reals if i not in list("RWMSYK")]
+                    if sorted([reals.count(i) for i in set(reals)], reverse=True)[1] > 1:  # not autapomorphy
+                        snpsite[basenumber] = "*"                      ## mark PIS for outfile .align
+                    else:                                              ## if autapormorphy
+                        snpsite[basenumber] = '-'
+                basenumber += 1
+
+            " only include real sites in snpsite string "
+            #rms = [any([j not in ['N','-'] for j in site]) for site in bases]
+            #for i in range(len(sss)):
+            #    sss[i] = "".join([sss[i][j] for j in range(len(sss[i])) if rms[j]])
+            #snpsite = [snpsite[i] for i in range(len(snpsite)) if rms[i]]
+
+            " get trimmed edges "
+            FM1,FM2,SM1,SM2 = trimmer(overhang,nn,sss,datatype, minspecies)
+
+            "alphabetize names"
+            zz.sort()
+
+            " filter for duplicates or paralogs, then SNPs and Indels "
+            if not (D or P):
+
+                " SNP filter "
+                if 'pair' in datatype:
+                    #spacer = sss[0].index("X")
+                    snp1, snp2 = "".join(snpsite).split("XXXX")
+                    snp1 = snp1.replace("*","-")
+                    if snp1.count("-") > int(s1):
+                        S = "%S1"
+                    else:
+                        snp2 = snp2.replace("*","-")
+                        if snp2.count("-") > int(s2):
+                            S = "%S2"
+                else:
+                    if ("".join(snpsite[FM1:SM1]).replace("*","-").count('-') > int(s1)):
+                        S = "%S"
+
+                " indel filter"
+                if not S:
+                    if "pair" in datatype:
+                        spacer = sss[0].index("X")
+                        if any([y[FM1:spacer].count("-") > int(a1) for x,y in zz]):
+                            I = "%I1"
+                        elif any([y[spacer:SM2].count("-") > int(a2) for x,y in zz]):
+                            I = "%I2"
+                    else:
+                        if any([y[FM1:SM1].count("-") > int(a1) for x,y in zz]):
+                            I = "%I"
+
+            if len(D+P+S+I) == 0:
+                " write aligned loci to temp files for later concatenation into the .loci file"
+                if 'pair' in datatype:
+                    snp1,snp2 = "".join(snpsite).split("XXXX")
+                    for x,y in zz:
+                        first,second = y.split("XXXX")
+                        space = ((longname+5)-len(x))
+                        print >>aout, x+" "*space + first[FM1:SM1].upper()+\
+                              'xxxx'+second[FM2:SM2].upper()
+                    print >>aout, '//'+' '*(longname+3)+snp1[FM1:SM1]+"    "+snp2[FM2:SM2]+"|"+notes
+                else:
+                    for x,y in zz:
+                        space = ((longname+5)-len(x))
+                        print >>aout, x+" "*space + y[FM1:SM1].upper()
+                    print >>aout, '//'+' '*(longname+3)+"".join(snpsite[FM1:SM1])+"|"+notes
+                    
+            else:
+                " write to exclude file "
+                if 'pair' in datatype:
+                    snp1,snp2 = "".join(snpsite).split("XXXX")
+                    for x,y in zz:
+                        first,second = y.split("XXXX")
+                        space = ((longname+5)-len(x))
+                        print >>nout, x+" "*space+first[FM1:SM1].upper()+'xxxx'+second[FM2:SM2].upper()
+                    print >>nout, '//'+D+P+S+I+' '*(longname+3-len(D+P+S+I))+snp1[FM1:SM1]+\
+                          "    "+snp2[FM2:SM2]+"|"+notes
+
+                else:
+                    for x,y in zz:
+                        space = ((longname+5)-len(x))
+                        print >>nout, x+" "*space+y[FM1:SM1].upper()
+                    print >>nout, '//'+D+P+S+I+' '*(longname+3-len(D+P+S+I))+"".join(snpsite[FM1:SM1])+"|"+notes
+                
+    nout.close()
+    aout.close()
+    sys.stderr.write('.')
+    return locus 
+
+
+
+def FF(x,minmax):
+    " finds leftmost or rightmost base in an alignment "
+    if minmax == 'max':
+        #try: ff = max([i for i,j in enumerate(x) if j not in ['-',"N"]])
+        try: ff = max([i for i,j in enumerate(x) if j != "-"])
+        except ValueError:
+            ff = 1
+
+    elif minmax == 'min':
+        #try: ff = min([i for i,j in enumerate(x) if j not in ['-',"N"]])
+        try: ff = min([i for i,j in enumerate(x) if j != "-"])
+        except ValueError:
+            " only Ns and -s"
+            ff = len(x)
+    return ff
+
+
+def makealign(ingroup, minspecies, outname, infile,
+              MAXpoly, parallel, s1, s2, muscle,
+              exclude, overhang, WORK, CUT,
+              a1, a2, datatype, longname):
+
+    " break input file into chunks for n threads "
+    if glob.glob(WORK+".align") or glob.glob(WORK+".chunk"):
+        os.system("/bin/rm "+WORK+".align* "+WORK+".chunk*")
+
+    """ read infile, split into chunks for aligning, nchuncks
+    depends on number of available processors """
+    f = gzip.open(infile,'rb').read().strip().split("//\n")
+    pp = max(3,parallel)
+    chunks = [0+(len(f)/pp)*i for i in range(pp)]
+    for i in range(len(chunks)-1):
+        ff = open(WORK+".chunk_"+str(i), 'w')
+        ff.write( "//\n\n".join(f[chunks[i]:chunks[i+1]])+"//\n\n")
+        ff.close()
+    ff = open(WORK+".chunk_"+str(i+1), 'w')
+    ff.write( "//\n\n".join(f[chunks[i+1]:])+"\n\n")
+    ff.close()
+
+    " set up parallel "
+    work_queue = multiprocessing.Queue()
+    result_queue = multiprocessing.Queue()
+    for handle in glob.glob(WORK+".chunk*"):
+        work_queue.put([handle, minspecies, ingroup, MAXpoly,
+                        outname, s1, s2, muscle, 
+                        exclude, overhang, WORK, CUT,
+                        a1, a2, datatype, longname])
+
+    " spawn workers "
+    jobs = []
+    for i in range(pp):
+        worker = Worker(work_queue, result_queue, alignFUNC)
+        jobs.append(worker)
+        worker.start()
+    for j in jobs:
+        j.join()
+
+    locus = 0
+    for handle in glob.glob(WORK+".chunk*"):
+        locus += int(result_queue.get())
+
+    " output stats and delete temp files... "
+    cmd = "/bin/cat "+WORK+".align* > "+WORK+"outfiles/"+outname+".loci"
+    os.system(cmd)                      ## outname add
+    os.system("/bin/rm "+WORK+".align* "+WORK+".chunk*")
+    cmd = "/bin/cat "+WORK+".not* > "+WORK+"outfiles/"+outname+".excluded_loci"
+    os.system(cmd)                      ## outname add
+    os.system("/bin/rm "+WORK+".not*")
+    return locus
+
+
+def makephy(ingroup, outgroups, outname, locus,
+            WORK, singletons, minspecies, snp,
+            usnp, struct, longname, datatype,
+            s1, s2):
+    print "\n\tfinal stats written to:\n\t "+WORK+"stats/"+outname+".stats"
+    print "\toutput files written to:\n\t "+WORK+"outfiles/ directory\n"
+    statsout = open(WORK+"stats/"+outname+".stats",'w')   
+    finalfile = open(WORK+"outfiles/"+outname+".loci").read() 
+    notkept = open(WORK+"outfiles/"+outname+".excluded_loci").read()
+    nloci = finalfile.count("|")
+    npara = notkept.count("%P")
+    ndups = notkept.count("%D")
+    nMSNP = notkept.count("%S")
+
+    " print header for how many loci are kept  "
+    print >>statsout, "\n"
+    print >>statsout, str(nloci+npara+nMSNP)+" "*(12-len(str(nloci+npara+nMSNP)))+"## loci with > minsp containing data"
+    print >>statsout, str(nloci+nMSNP)+" "*(12-len(str(nloci+nMSNP)))+"## loci with > minsp containing data & paralogs removed"
+    print >>statsout, str(nloci)+" "*(12-len(str(nloci)))+"## loci with > minsp containing data & paralogs removed & final filtering\n"
+
+    " print columns for how many loci were found in each sample "
+    print >>statsout, "## number of loci recovered in final data set for each taxon."
+    names = list(ingroup)+outgroups
+    names.sort()
+    print >>statsout, '\t'.join(['taxon','nloci'])
+    #ml = max(map(len,names))
+    for name in names:
+        print >>statsout, name+" "*(longname-len(name))+"\t"+str(finalfile.count(">"+name+" "))
+    print >>statsout, '\n'
+    print >>statsout, "## nloci = number of loci with data for exactly ntaxa"
+    print >>statsout, "## ntotal = number of loci for which at least ntaxa have data"
+    print >>statsout, '\t'.join(['ntaxa','nloci','saved','ntotal'])
+    coverage = [i.count(">") for i in finalfile.split("|")[:-1]]
+    if not coverage:
+        print "\twarning: no loci meet 'min_sample' setting (line 11)\n\tno results written"
+        sys.exit()
+    coverage.sort()
+    print >>statsout, str(1)+"\t-"  
+    tot = nloci
+    for i in range(2,max(set(coverage))+1):
+        if i>=minspecies:
+            tot -= coverage.count(i-1)
+            print >>statsout, str(i)+"\t"+str(coverage.count(i))+"\t*\t"+str(tot)
+        else:
+            #print >>statsout, str(i)+"\t"+str(coverage.count(i))+'\t\t-'
+            print >>statsout, str(i)+"\t-\t\t-"
+    print >>statsout, "\n"
+
+    " print variable sites counter "
+    print >>statsout, "## var = number of loci containing n variable sites."
+    print >>statsout, "## pis = number of loci containing n parsimony informative var sites."
+    print >>statsout, '\t'.join(['n','var','PIS'])
+    pis = [i.count("*") for i in finalfile.split("|")[:-1]]
+    snps = [line.count("-") for line in finalfile.split("\n")[:-1] if "//" in line]
+    print >>statsout, str(0)+"\t"+str(snps.count(0))+"\t"+str(pis.count(0))
+    for i in range(1,max(max(set(snps))+1,max(set(pis))+1)):
+        print >>statsout, str(i)+"\t"+str(snps.count(i)+pis.count(i))+"\t"+str(pis.count(i))
+    totalvar = sum(snps)+sum(pis)
+    print >>statsout, "total var=",totalvar
+    print >>statsout, "total pis=",sum(pis)
+
+    " output .snps .snp and .phy files "
+    F = {}  ## taxon dict
+    S = {}  ## snp dict
+    Si = {} ## unlinked snp dict
+    for name in list(names):
+        F[name] = []
+        S[name] = []
+        Si[name] = []
+
+    " for each locus select out the SNPs"
+    for loc in [i for i in finalfile.split("|")[:-1]]:
+        ns = []
+        ss = []
+        cov = {}  ## record coverage for each SNP
+        for line in loc.split("\n"):
+            if ">" in line:
+                ns.append(line.split(" ")[0].replace(">",""))
+                ss.append(line.split(" ")[-1])
+            if "//" in line:
+                pis = [i[0] for i in enumerate(line) if i[1] in list('*-')]
+
+        " assign snps to S, and record coverage for usnps"
+        for tax in F:
+            if tax in ns:
+                F[tax].append(ss[ns.index(tax)])
+                if pis:
+                    for snpsite in pis:
+                        snpsite -= (longname+5)
+                        S[tax].append(ss[ns.index(tax)][snpsite])
+                        if snpsite not in cov:
+                            cov[snpsite] = 1
+                        else:
+                            cov[snpsite] += 1
+                        if ss[ns.index(tax)][snpsite] != '-':
+                            cov[snpsite] += 1
+            else:
+                F[tax].append("N"*len(ss[0]))
+                if pis:
+                    for snpsite in pis:
+                        S[tax].append("N")
+                    Si[tax].append("N")
+        " randomly select among snps w/ greatest coverage for unlinked snp "
+        maxlist = []
+        for j,k in cov.items():
+            if k == max(cov.values()):
+                maxlist.append(j)
+        if maxlist:
+            rando = pis[np.random.randint(len(pis))]
+            rando -= (longname+5)
+        for tax in F:
+            if tax in ns:
+                if pis:
+                    Si[tax].append(ss[ns.index(tax)][rando])
+            if pis:
+                S[tax].append(" ")
+            else:
+                S[tax].append("_ ")
+
+    longname = max(map(len,names))
+    " print out .PHY file "
+    superout = open(WORK+"outfiles/"+outname+".phy",'w')
+
+    SF = list(F.keys())
+    SF.sort()
+
+    phyarray = np.array([tuple("".join(F[i]).replace("x","N")) for i in SF])
+    ## remove columns with only missing seqs
+    cols = [phyarray[:,i] for i in range(len(phyarray[0])) if not np.all([j in ['-',"N"] for j in phyarray[:,i]])]
+    phyarray = np.array(cols).transpose()
+
+    print >>superout, len(F), len("".join(phyarray[0,]))
+        
+    for i in SF:
+        print >>superout, i+(" "*((longname+3)-len(i))) + "".join(phyarray[SF.index(i),])
+    superout.close()
+
+    del cols
+    del phyarray
+
+    " print out .SNP file "
+    if snp:
+        snpsout = open(WORK+'outfiles/'+outname+".snps",'w')
+        print >>snpsout, "## %s taxa, %s loci, %s snps" % (len(S),
+                                                           len("".join(S.values()[0]).split(" "))-1,
+                                                           totalvar)
+                                                           
+        for i in SF:
+            print >>snpsout, i+(" "*(longname-len(i)+3))+"".join(S[i])
+        snpsout.close()
+
+    " print out .USNP file "
+    if usnp:
+        snpout = open(WORK+'outfiles/'+outname+".unlinked_snps",'w')
+        print >>snpout, len(Si),len("".join(Si.values()[0]))
+        for i in SF:
+            print >>snpout, i+(" "*(longname-len(i)+3))+"".join(Si[i])
+        snpout.close()
+
+    "print out .str (structure) file "
+    if struct:
+        " array of SNP data "
+        N = np.array([list(Si[i]) for i in SF])
+
+        " column of names "
+        namescol = list(chain( * [[i,i] for i in SF] ))
+        " add blank columns "
+        empty = np.array(["" for i in xrange(len(SF)*2)])
+        OUT = np.array([namescol,empty,empty,empty,empty,empty,empty])
+        for col in xrange(len(N[0])):
+            l = N[:,col]
+            h = [unstruct(j) for j in l]
+            h = list(chain(*h))
+            bases = list("ATGC")
+            final = [bases.index(i) if i not in list("-N") else '-9' for i in h]
+            OUT = np.vstack([OUT, np.array(final)])
+
+        np.savetxt(WORK+'outfiles/'+outname+".str", OUT.transpose(), fmt="%s", delimiter="\t")
+
+
+
+def makehaplos(infile, longname):
+    """TODO print gbs warning that haplos may not be
+    phased on non-overlapping segments"""
+    outfile = open(infile.replace(".loci",".alleles"),'w')
+    lines = open(infile).readlines()
+    writing = []
+    loc = 0
+    for line in lines:
+        if ">" in line:
+            a,b = line.split(" ")[0],line.split(" ")[-1]
+            a1,a2 = breakalleles(b.strip())
+            writing.append(a+"_0"+" "*(longname-len(a)+4)+a1)
+            writing.append(a+"_1"+" "*(longname-len(a)+4)+a2)
+        else:
+            writing.append(line.strip())
+        loc += 1
+
+        " print every 10K loci "
+        if not loc % 10000:
+            outfile.write("\n".join(writing))
+            writing = []
+            
+    outfile.write("\n".join(writing))
+    outfile.close()
+
+
+def makenex(infile, longname):
+    data = open(infile).readlines()
+    oo = open(infile.replace(".phy",".nex"),'w')
+
+    ntax,nchar = data[0].strip().split(" ")
+
+    print >>oo, "#NEXUS"
+    print >>oo, "BEGIN DATA;"
+    print >>oo, "  DIMENSIONS NTAX=%s NCHAR=%s;" % (ntax,nchar)
+    print >>oo, "  FORMAT DATATYPE=DNA MISSING=N GAP=- INTERLEAVE=YES;"
+    print >>oo, "  MATRIX"
+
+    L = {}
+    for line in data[1:]:
+        a = line.lstrip().rstrip().split(" ")
+        L[a[0]] = a[-1]
+
+    n=0
+    sz = 100
+    while n<len(a[-1]):
+        for tax in L:
+            print >>oo, "  "+tax+" "*((longname-len(tax))+3)+L[tax][n:n+sz]
+        n += sz
+        print >>oo, ""
+    print >>oo, ';'
+    print >>oo, 'END;'
+    oo.close()
+    
+
+def cmd_exists(cmd):
+    return subprocess.call("type " + cmd, shell=True, 
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
+
+
+def main(outgroup, minspecies, outname,
+         infile, MAXpoly, parallel,
+         maxSNP, muscle, exclude, overhang,
+         outform, WORK, gids, CUT,
+         a1, a2, datatype, subset):
+
+    " remove old temp files "
+    if glob.glob(WORK+".chunk_*"):
+        os.system("/bin/rm "+WORK+".chunk_*")
+    if glob.glob(WORK+".align_*"):
+        os.system("/bin/rm "+WORK+".align_*")
+    if glob.glob(WORK+".not_*"):
+        os.system("/bin/rm "+WORK+".not_*")
+
+    " create output directory "
+    if not os.path.exists(WORK+'outfiles'):
+        os.makedirs(WORK+'outfiles')
+
+    " find muscle"
+    if not cmd_exists(muscle):
+        print "cannot find muscle, edit path in input file"
+        sys.exit()
+
+    " read names from file "
+    f = gzip.open(infile,'r').readlines()
+    names = set(["_".join(i.split(">")[1].split("_")[:-2]) for i in f if ">" in i])
+
+    " parse maxSNP argument "
+    if 'pair' in datatype:
+        if "," in maxSNP:
+            s1,s2 = map(int,maxSNP.split(","))
+        else:
+            s1 = s2 = int(maxSNP)
+    else:
+        if "," in maxSNP:
+            s1 = int(maxSNP[0])
+        else:
+            s1 = s2 = maxSNP
+
+    " set singletons to 0 "
+    singletons = 0
+    
+    " find subset names "
+    subset = set([i for i in names if subset in i])
+
+    " remove excludes and outgroups from list "
+    if exclude:
+        exclude = exclude.strip().split(",")
+    else:
+        exclude = []
+    exclude += list(names.difference(subset))
+    if outgroup:
+        outgroup = outgroup.strip().split(",")
+    else:
+        outgroup = []
+    for i in exclude:
+        names.discard(i)
+    ingroup = copy(names)
+    for i in outgroup:
+        if i in ingroup:
+            ingroup.remove(i)
+
+    " print includes and excludes to screen "
+    toprint = [i for i in list(ingroup) if i not in exclude]
+    toprint.sort()
+    print '\tingroup', ",".join(toprint)
+    toprint = [i for i in outgroup if i not in exclude]
+    toprint.sort()
+    print '\taddon', ",".join(toprint)
+    print '\texclude', ",".join(exclude)
+    print "\t",
+    if len(ingroup) <2:
+        print "\n\twarning: must have at least two samples selected for across-sample clustering "
+        sys.exit()
+
+    " dont allow more processors than available on machine "
+    if parallel > multiprocessing.cpu_count():
+        parallel = multiprocessing.cpu_count()
+
+    " find longest name for prettier output files "
+    longname = max(map(len, list(ingroup)+list(outgroup)))
+
+    " call alignment function to make .loci files"
+    locus = makealign(ingroup, minspecies, outname, infile,
+                      MAXpoly, parallel, s1, s2, muscle,
+                      exclude, overhang, WORK, CUT,
+                      a1, a2, datatype, longname)
+
+    " make other formatted files "
+    formats = outform.split(",")
+    usnp = snp = struct = 0
+    if 'u' in formats:
+        usnp = 1
+    if 's' in formats:
+        snp = 1
+    if 'k' in formats:
+        struct = 1
+    makephy(ingroup, outgroup, outname, locus,
+            WORK, singletons, minspecies,
+            snp, usnp, struct, longname, datatype,
+            s1, s2)
+    if 'a' in formats:
+        makehaplos(WORK+"outfiles/"+outname+".loci", longname)
+    if "n" in formats:
+        makenex(WORK+"outfiles/"+outname+".phy", longname)
+
+
