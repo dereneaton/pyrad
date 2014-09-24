@@ -14,21 +14,17 @@ from optparse import OptionParser
 #-----------
 import sortandcheck2
 import overlapcheck
-import editraw_rads
-import editraw_pairs
-import editraw_merges
+import editraw_rads, editraw_pairs, editraw_merges
 import H_err_dp
 import cluster7dp
-import consensdp
-import consens_pairs
+import consensdp, consens_pairs
 import cluster_cons7_shuf
 import tier2clust
 import alignable
-import loci2vcf
+import loci2vcf, loci2phynex, loci2treemix
+import loci2SNP
 #------------
-import Dtest
-import Dtest_5
-import Dtest_foil
+import Dtest, Dtest_5, Dtest_foil
 import createfile
 import potpour
 from potpour import Worker
@@ -109,8 +105,8 @@ def main():
         if maxSNP == "": maxSNP = "99"
         max_inserts = str(readin[28])
         if max_inserts == "": max_inserts = "3"
-        try: seed     = str(readin[29])
-        except IndexError: seed = 112233
+        try: seed     = int(readin[29])
+        except ValueError: seed = 112233
         try: overhang    = [int(i) for i in str(readin[30]).strip().split(',')]
         except (ValueError,IndexError): overhang = [0,0]
         try: outform   = str(readin[31])
@@ -129,26 +125,6 @@ def main():
         except IndexError: clustprefix = ""
         clustprefix = [i for i in clustprefix if i]
 
-
-
-        """ expand clustprefix cluster groups """
-        gids = []
-        groups = []
-        minhits = []
-        "hierarchical clustering "
-        for line in clustprefix:
-            gid, hits, inds = line.strip().split(" ")
-            gids.append(gid)
-            minhits.append(hits)
-            if "*" in inds:
-                expanded = glob.glob(WORK+"clust"+wclust+"/"+inds+".consens*")
-                groups.append(expanded)
-            else:
-                inds = inds.split(",")
-                groups.append([WORK+"clust"+wclust+"/"+i+".consens.gz" for i in inds])
-            "TODO check for size=1 "
-        if not gids:
-            gids = ""
 
 
         """ expand ./ ~ and ../ designators in location names """
@@ -181,6 +157,26 @@ def main():
         if uclust: uclust = expander(uclust)
         if muscle: muscle = expander(muscle)
         if options.dtest: options.dtest = expander(options.dtest)
+
+
+        """ expand clustprefix cluster groups """
+        gids = []
+        groups = []
+        minhits = []
+        "hierarchical clustering "
+        for line in clustprefix:
+            gid, hits, inds = line.strip().split(" ")
+            gids.append(gid)
+            minhits.append(hits)
+            if "*" in inds:
+                expanded = glob.glob(WORK+"clust"+wclust+"/"+inds+".consens*")
+                groups.append(expanded)
+            else:
+                inds = inds.split(",")
+                groups.append([WORK+"clust"+wclust+"/"+i+".consens.gz" for i in inds])
+            "TODO check for size=1 "
+        if not gids:
+            gids = ""
 
 
         " step of the analysis "
@@ -440,29 +436,34 @@ def main():
             if gids:
                 inclustfile = WORK+"prefix/cat.clust_.gz"
             else:
-                #inclustfile = WORK+'clust'+wclust+"/cat.clust_"+subset+".gz"
                 inclustfile = WORK+'clust'+wclust+"/cat.clust_.gz"
 
             if not os.path.exists(inclustfile):
-                sys.stderr.write("\n\t could not find clustered subset: \n\t"+inclustfile)
-                sys.stderr.write("\n\t looking for default full cluster file")
+                #sys.stderr.write("\n\t didn't find hierarchically clustered subset: \n\t"+inclustfile)
+                #sys.stderr.write("\n\t looking for default full cluster file")
                 if os.path.exists(WORK+'clust'+wclust+"/cat.clust_.gz"):
                     inclustfile = WORK+'clust'+wclust+"/cat.clust_.gz"
-                    sys.stderr.write("\n\t ... Found: using \n\t"+inclustfile+"\n\n")
+                    sys.stderr.write("\n\tCluster input file: using \n\t"+inclustfile+"\n\n")
                 else:
                     print "\tnot found"
                     #print "\tcat.clust_ file is selected based on line 15 subset argument "
                     #print "\n\t if you wish to exclude samples from an existing cat.clust file "+\
                     #      "\n\t in your output alignments list exclude names on line 17 of the params file.\n "
                     sys.exit()
+            if any([i in outform for i in ['t','m']]):
+                print "\tgroups for 't' or 'm' outputs:",gids
+            taxadict = dict(zip(gids,groups))
             alignable.main(outgroup, minsamp, outname,
                            inclustfile, maxpoly, parallel,
                            maxSNP, muscle, exclude, overhang,
                            outform, WORK, gids, CUT,
-                           a1, a2, datatype, subset)
-            if "v" in outform.strip().split(","):
-                loci2vcf.makeVCF(parser.version.split(" ")[1], WORK+"outfiles/"+outname+".loci",
-                         mindepth, WORK+"outfiles/"+outname+".vcf")
+                           a1, a2, datatype, subset,
+                           parser.version.split(" ")[1],
+                           mindepth, taxadict, seed)
+
+            # if "v" in outform.strip().split(","):
+            #     loci2vcf.makeVCF(, WORK+"outfiles/"+outname+".loci",
+            #              mindepth, WORK+"outfiles/"+outname+".vcf")
 
 
         if '8' in k:
