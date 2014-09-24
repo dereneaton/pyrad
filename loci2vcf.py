@@ -1,21 +1,14 @@
 
 import time
 import numpy as np
-from alignable import unstruct
-from alignable import most_common
+import alignable
 
 
-## STILL NEED TO DO SOMETHING ABOUT Ns, and test on real data...
-
-def makeVCF(version, locifile, mindepth, outstring):
-    #version = 2.16
-    #infile = "/home/deren/Dropbox/Public/PyRAD_TUTORIALS/tutorial_RAD/outfiles/c88d6m4p3.loci"
-    #outfile = open("/home/deren/Desktop/test.vcf",'w')
-
-    outfile = open(outstring, 'w')
-
-    samples = list(set([i.strip().split(" ")[0] for i in open(locifile).readlines() if ">" in i]))
-    samples.sort()
+def make(WORK, version, outname, mindepth, names):
+    outfile  =  open(WORK+"/outfiles/"+outname+".vcf", 'w')
+    inloci   =  WORK+"/outfiles/"+outname+".loci"
+    names = list(names)
+    names.sort()
 
     print >>outfile, "##fileformat=VCFv4.1"
     print >>outfile, "##fileDate="+time.strftime("%Y%m%d")
@@ -28,12 +21,12 @@ def makeVCF(version, locifile, mindepth, outstring):
     print >>outfile, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">"
     print >>outfile, "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">"
     print >>outfile, "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">"
-    print >>outfile, "\t".join(["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO    ","FORMAT"]+list(samples))
+    print >>outfile, "\t".join(["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO    ","FORMAT"]+list(names))
 
-    loci = open(locifile).read().strip().split("|")[0:]
+    loci = open(inloci).read().strip().split("|")[0:]
 
     for locusnumber in range(len(loci)):
-        samps = [i.split(" ")[0] for i in loci[locusnumber].strip().split("\n")[:-1]]
+        samps = [i.split(" ")[0][1:] for i in loci[locusnumber].strip().split("\n")[:-1]]
         loc = np.array([tuple(i.split(" ")[-1]) for i in loci[locusnumber].strip().split("\n")[:-1]])
         NS = str(len(loc))
         DP = str(mindepth)
@@ -44,19 +37,19 @@ def makeVCF(version, locifile, mindepth, outstring):
             if site:
                 for bb in site:
                     if bb in list("RKYSWM"):
-                        col += unstruct(bb)[0]
-                        col += unstruct(bb)[1]
+                        col += alignable.unstruct(bb)[0]
+                        col += alignable.unstruct(bb)[1]
                     else:
                         col += bb
-                REF = most_common([i for i in col if i not in list("-RKYSWMN")])
+                REF = alignable.most_common([i for i in col if i not in list("-RKYSWMN")])
                 ALT = set([i for i in col if (i in list("ATGC-N")) and (i!=REF)])
                 if ALT:
                     GENO = [REF]+list(ALT)
                     GENOS = []
-                    for samp in samples:
+                    for samp in names:
                         if samp in samps:
                             idx = samps.index(samp)
-                            f = unstruct(loc.T[base][idx])
+                            f = alignable.unstruct(loc.T[base][idx])
                             if ('-' in f) or ('N' in f):
                                 GENOS.append("./.")
                             else:
@@ -68,12 +61,5 @@ def makeVCF(version, locifile, mindepth, outstring):
 
     outfile.close()
 
-
-#version = 2.16
-#infile = "/home/deren/Documents/Oaks/Virentes/analysis_pyrad/outfiles/virentes_c85d6m20p5noutg.loci"
-#mindepth = 6
-#outfile = "/home/deren/Documents/Oaks/Virentes/analysis_pyrad/outfiles/virentes_c85d6m20p5noutg.vcf"
-
-
 if __name__ == "__main__":
-    makeVCF(version, infile, mindepth, outfile)
+    make(WORK, version, outname, mindepth, names)

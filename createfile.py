@@ -32,7 +32,7 @@ c88d6m4p3                   ## 14. prefix name for final output (no spaces)     
                        ## 25.opt.: ploidy: max alleles in consens (def. 2) see doc  (s5)
                        ## 26.opt.: maxSNPs: step 7. (def=100). Paired (def=100,100) (s7)
                        ## 27.opt.: maxIndels: within-clust,across-clust (def. 3,99) (s3,s7)
-                       ## 28.opt.: random number seed (def. 112233)                 (s3,s6)
+                       ## 28.opt.: random number seed (def. 112233)                 (s3,s6,s7)
                        ## 29.opt.: trim overhang left,right on final loci, def(0,0) (s7)
                        ## 30.opt.: add output formats: a,n,s,u (see documentation)  (s7)
                        ## 31.opt.: call maj. consens if dpth < stat. limit (def. 0) (s5)
@@ -41,7 +41,6 @@ c88d6m4p3                   ## 14. prefix name for final output (no spaces)     
                        ## 34.opt.: max stack size (int), def= max(500,mean+2*SD)    (s3)
                        ## 35.opt.: minDerep: exclude dereps with <= N copies, def=0 (s3)
 ==== list hierachical cluster groups below this line =====================================
-
 """  % (version)
     outfile = open("params.txt",'w')
     print >>sys.stderr, "\tnew params.txt file created"
