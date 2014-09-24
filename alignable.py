@@ -5,12 +5,18 @@ import glob
 import subprocess
 import multiprocessing
 import gzip
+
 from itertools import izip
 from copy import copy
 from potpour import *
 from consensdp import unhetero, uplow, breakalleles
 from itertools import chain, groupby
 from cluster_cons7_shuf import comp
+
+import loci2phynex
+import loci2vcf
+import loci2treemix
+import loci2SNP
 
 
 def unstruct(amb):
@@ -478,18 +484,21 @@ def makealign(ingroup, minspecies, outname, infile,
     cmd = "/bin/cat "+WORK+".not* > "+WORK+"outfiles/"+outname+".excluded_loci"
     os.system(cmd)                      ## outname add
     os.system("/bin/rm "+WORK+".not*")
-    return locus
 
 
-def makephy(ingroup, outgroups, outname, locus,
-            WORK, singletons, minspecies, snp,
-            usnp, struct, longname, datatype,
-            s1, s2):
+def DoStats(ingroup, outgroups, outname, 
+            WORK, minspecies,longname):
+
+    " message to screen "
     print "\n\tfinal stats written to:\n\t "+WORK+"stats/"+outname+".stats"
     print "\toutput files written to:\n\t "+WORK+"outfiles/ directory\n"
-    statsout = open(WORK+"stats/"+outname+".stats",'w')   
+
+    " open stats file for writing, and loci file for reading "
+    statsout  = open(WORK+"stats/"+outname+".stats",'w')   
     finalfile = open(WORK+"outfiles/"+outname+".loci").read() 
-    notkept = open(WORK+"outfiles/"+outname+".excluded_loci").read()
+    notkept   = open(WORK+"outfiles/"+outname+".excluded_loci").read()
+
+    " get stats from loci and excluded_loci "
     nloci = finalfile.count("|")
     npara = notkept.count("%P")
     ndups = notkept.count("%D")
@@ -497,16 +506,21 @@ def makephy(ingroup, outgroups, outname, locus,
 
     " print header for how many loci are kept  "
     print >>statsout, "\n"
-    print >>statsout, str(nloci+npara+nMSNP)+" "*(12-len(str(nloci+npara+nMSNP)))+"## loci with > minsp containing data"
-    print >>statsout, str(nloci+nMSNP)+" "*(12-len(str(nloci+nMSNP)))+"## loci with > minsp containing data & paralogs removed"
-    print >>statsout, str(nloci)+" "*(12-len(str(nloci)))+"## loci with > minsp containing data & paralogs removed & final filtering\n"
+    print >>statsout, str(nloci+npara+nMSNP)+\
+          " "*(12-len(str(nloci+npara+nMSNP)))+\
+          "## loci with > minsp containing data"
+    print >>statsout, str(nloci+nMSNP)+\
+          " "*(12-len(str(nloci+nMSNP)))+\
+          "## loci with > minsp containing data & paralogs removed"
+    print >>statsout, str(nloci)+\
+          " "*(12-len(str(nloci)))+\
+          "## loci with > minsp containing data & paralogs removed & final filtering\n"
 
     " print columns for how many loci were found in each sample "
     print >>statsout, "## number of loci recovered in final data set for each taxon."
     names = list(ingroup)+outgroups
     names.sort()
     print >>statsout, '\t'.join(['taxon','nloci'])
-    #ml = max(map(len,names))
     for name in names:
         print >>statsout, name+" "*(longname-len(name))+"\t"+str(finalfile.count(">"+name+" "))
     print >>statsout, '\n'
@@ -525,7 +539,6 @@ def makephy(ingroup, outgroups, outname, locus,
             tot -= coverage.count(i-1)
             print >>statsout, str(i)+"\t"+str(coverage.count(i))+"\t*\t"+str(tot)
         else:
-            #print >>statsout, str(i)+"\t"+str(coverage.count(i))+'\t\t-'
             print >>statsout, str(i)+"\t-\t\t-"
     print >>statsout, "\n"
 
@@ -542,131 +555,14 @@ def makephy(ingroup, outgroups, outname, locus,
     print >>statsout, "total var=",totalvar
     print >>statsout, "total pis=",sum(pis)
 
-    " output .snps .snp and .phy files "
-    F = {}  ## taxon dict
-    S = {}  ## snp dict
-    Si = {} ## unlinked snp dict
-    for name in list(names):
-        F[name] = []
-        S[name] = []
-        Si[name] = []
-
-    " for each locus select out the SNPs"
-    for loc in [i for i in finalfile.split("|")[:-1]]:
-        ns = []
-        ss = []
-        cov = {}  ## record coverage for each SNP
-        for line in loc.split("\n"):
-            if ">" in line:
-                ns.append(line.split(" ")[0].replace(">",""))
-                ss.append(line.split(" ")[-1])
-            if "//" in line:
-                pis = [i[0] for i in enumerate(line) if i[1] in list('*-')]
-
-        " assign snps to S, and record coverage for usnps"
-        for tax in F:
-            if tax in ns:
-                F[tax].append(ss[ns.index(tax)])
-                if pis:
-                    for snpsite in pis:
-                        snpsite -= (longname+5)
-                        S[tax].append(ss[ns.index(tax)][snpsite])
-                        if snpsite not in cov:
-                            cov[snpsite] = 1
-                        else:
-                            cov[snpsite] += 1
-                        if ss[ns.index(tax)][snpsite] != '-':
-                            cov[snpsite] += 1
-            else:
-                F[tax].append("N"*len(ss[0]))
-                if pis:
-                    for snpsite in pis:
-                        S[tax].append("N")
-                    Si[tax].append("N")
-        " randomly select among snps w/ greatest coverage for unlinked snp "
-        maxlist = []
-        for j,k in cov.items():
-            if k == max(cov.values()):
-                maxlist.append(j)
-        if maxlist:
-            rando = pis[np.random.randint(len(pis))]
-            rando -= (longname+5)
-        for tax in F:
-            if tax in ns:
-                if pis:
-                    Si[tax].append(ss[ns.index(tax)][rando])
-            if pis:
-                S[tax].append(" ")
-            else:
-                S[tax].append("_ ")
-
-    longname = max(map(len,names))
-    " print out .PHY file "
-    superout = open(WORK+"outfiles/"+outname+".phy",'w')
-
-    SF = list(F.keys())
-    SF.sort()
-
-    phyarray = np.array([tuple("".join(F[i]).replace("x","N")) for i in SF])
-    ## remove columns with only missing seqs
-    cols = [phyarray[:,i] for i in range(len(phyarray[0])) if not np.all([j in ['-',"N"] for j in phyarray[:,i]])]
-    phyarray = np.array(cols).transpose()
-
-    print >>superout, len(F), len("".join(phyarray[0,]))
-        
-    for i in SF:
-        print >>superout, i+(" "*((longname+3)-len(i))) + "".join(phyarray[SF.index(i),])
-    superout.close()
-
-    del cols
-    del phyarray
-
-    " print out .SNP file "
-    if snp:
-        snpsout = open(WORK+'outfiles/'+outname+".snps",'w')
-        print >>snpsout, "## %s taxa, %s loci, %s snps" % (len(S),
-                                                           len("".join(S.values()[0]).split(" "))-1,
-                                                           totalvar)
-                                                           
-        for i in SF:
-            print >>snpsout, i+(" "*(longname-len(i)+3))+"".join(S[i])
-        snpsout.close()
-
-    " print out .USNP file "
-    if usnp:
-        snpout = open(WORK+'outfiles/'+outname+".unlinked_snps",'w')
-        print >>snpout, len(Si),len("".join(Si.values()[0]))
-        for i in SF:
-            print >>snpout, i+(" "*(longname-len(i)+3))+"".join(Si[i])
-        snpout.close()
-
-    "print out .str (structure) file "
-    if struct:
-        " array of SNP data "
-        N = np.array([list(Si[i]) for i in SF])
-
-        " column of names "
-        namescol = list(chain( * [[i,i] for i in SF] ))
-        " add blank columns "
-        empty = np.array(["" for i in xrange(len(SF)*2)])
-        OUT = np.array([namescol,empty,empty,empty,empty,empty,empty])
-        for col in xrange(len(N[0])):
-            l = N[:,col]
-            h = [unstruct(j) for j in l]
-            h = list(chain(*h))
-            bases = list("ATGC")
-            final = [bases.index(i) if i not in list("-N") else '-9' for i in h]
-            OUT = np.vstack([OUT, np.array(final)])
-
-        np.savetxt(WORK+'outfiles/'+outname+".str", OUT.transpose(), fmt="%s", delimiter="\t")
 
 
 
-def makehaplos(infile, longname):
+def makehaplos(WORK, outname, longname):
     """TODO print gbs warning that haplos may not be
     phased on non-overlapping segments"""
-    outfile = open(infile.replace(".loci",".alleles"),'w')
-    lines = open(infile).readlines()
+    outfile = open(WORK+"outfiles/"+outname+".alleles", 'w')
+    lines = open(WORK+"outfiles/"+outname+".loci").readlines()
     writing = []
     loc = 0
     for line in lines:
@@ -688,34 +584,6 @@ def makehaplos(infile, longname):
     outfile.close()
 
 
-def makenex(infile, longname):
-    data = open(infile).readlines()
-    oo = open(infile.replace(".phy",".nex"),'w')
-
-    ntax,nchar = data[0].strip().split(" ")
-
-    print >>oo, "#NEXUS"
-    print >>oo, "BEGIN DATA;"
-    print >>oo, "  DIMENSIONS NTAX=%s NCHAR=%s;" % (ntax,nchar)
-    print >>oo, "  FORMAT DATATYPE=DNA MISSING=N GAP=- INTERLEAVE=YES;"
-    print >>oo, "  MATRIX"
-
-    L = {}
-    for line in data[1:]:
-        a = line.lstrip().rstrip().split(" ")
-        L[a[0]] = a[-1]
-
-    n=0
-    sz = 100
-    while n<len(a[-1]):
-        for tax in L:
-            print >>oo, "  "+tax+" "*((longname-len(tax))+3)+L[tax][n:n+sz]
-        n += sz
-        print >>oo, ""
-    print >>oo, ';'
-    print >>oo, 'END;'
-    oo.close()
-    
 
 def cmd_exists(cmd):
     return subprocess.call("type " + cmd, shell=True, 
@@ -726,7 +594,8 @@ def main(outgroup, minspecies, outname,
          infile, MAXpoly, parallel,
          maxSNP, muscle, exclude, overhang,
          outform, WORK, gids, CUT,
-         a1, a2, datatype, subset):
+         a1, a2, datatype, subset,
+         version, mindepth, taxadict, seed):
 
     " remove old temp files "
     if glob.glob(WORK+".chunk_*"):
@@ -784,6 +653,7 @@ def main(outgroup, minspecies, outname,
         if i in ingroup:
             ingroup.remove(i)
 
+
     " print includes and excludes to screen "
     toprint = [i for i in list(ingroup) if i not in exclude]
     toprint.sort()
@@ -794,7 +664,7 @@ def main(outgroup, minspecies, outname,
     print '\texclude', ",".join(exclude)
     print "\t",
     if len(ingroup) <2:
-        print "\n\twarning: must have at least two samples selected for across-sample clustering "
+        print "\n\twarning: must have at least two samples selected for inclusion in the data set "
         sys.exit()
 
     " dont allow more processors than available on machine "
@@ -810,22 +680,30 @@ def main(outgroup, minspecies, outname,
                       exclude, overhang, WORK, CUT,
                       a1, a2, datatype, longname)
 
+    " make stats output "
+    DoStats(ingroup, outgroup, outname, 
+            WORK, minspecies,longname)
+
     " make other formatted files "
     formats = outform.split(",")
-    usnp = snp = struct = 0
-    if 'u' in formats:
-        usnp = 1
-    if 's' in formats:
-        snp = 1
-    if 'k' in formats:
-        struct = 1
-    makephy(ingroup, outgroup, outname, locus,
-            WORK, singletons, minspecies,
-            snp, usnp, struct, longname, datatype,
-            s1, s2)
-    if 'a' in formats:
-        makehaplos(WORK+"outfiles/"+outname+".loci", longname)
-    if "n" in formats:
-        makenex(WORK+"outfiles/"+outname+".phy", longname)
 
+    " make phy, nex, SNP, uSNP, structure"
+    makenex = bool('n' in formats)
+    loci2phynex.make(WORK,outname,names,longname,makenex)
+    loci2SNP.make(WORK, outname, names, formats, seed)
 
+    " make vcf "
+    if 'v' in formats:
+        loci2vcf.make(WORK, version, outname, mindepth, names)
+    
+    " make alleles output "
+    if "a" in formats:
+        makehaplos(WORK,outname,longname)
+        
+    " make treemix output "
+    if "t" in formats:
+        loci2treemix.make(WORK, outname, taxadict)
+    
+    " make migrate output "
+    #if 'm' in formats:
+    #    loci2migrate.make()
