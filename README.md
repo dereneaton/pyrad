@@ -1,8 +1,7 @@
-pyrad
-=====
+### _pyrad_
 
 Assembly and analysis of RADseq data sets.  
-
-In the process of migrating code here from googlecode.
+Detailed information and tutorials available [here](http://www.dereneaotn.com/software/pyrad/).  
+Stable release and development versions of the software will be hosted in this repository.   
 
 
