@@ -17,7 +17,7 @@ import loci2phynex
 import loci2vcf
 import loci2treemix
 import loci2SNP
-
+import loci2mig
 
 def unstruct(amb):
     amb = amb.upper()
@@ -527,7 +527,7 @@ def DoStats(ingroup, outgroups, outname,
     print >>statsout, "## nloci = number of loci with data for exactly ntaxa"
     print >>statsout, "## ntotal = number of loci for which at least ntaxa have data"
     print >>statsout, '\t'.join(['ntaxa','nloci','saved','ntotal'])
-    coverage = [i.count(">") for i in finalfile.split("|")[:-1]]
+    coverage = [i.count(">") for i in finalfile.strip().split("|\n")[:]]
     if not coverage:
         print "\twarning: no loci meet 'min_sample' setting (line 11)\n\tno results written"
         sys.exit()
@@ -546,8 +546,9 @@ def DoStats(ingroup, outgroups, outname,
     print >>statsout, "## var = number of loci containing n variable sites."
     print >>statsout, "## pis = number of loci containing n parsimony informative var sites."
     print >>statsout, '\t'.join(['n','var','PIS'])
-    pis = [i.count("*") for i in finalfile.split("|")[:-1]]
-    snps = [line.count("-") for line in finalfile.split("\n")[:-1] if "//" in line]
+    ## pis = [finalfile.count("*")]   # [i.count("*") for i in finalfile] ## .strip().split("|\n")[:-1]]
+    pis = [line.count("*") for line in finalfile.split("\n") if "|" in line]
+    snps = [line.count("-") for line in finalfile.split("\n") if "|" in line]
     print >>statsout, str(0)+"\t"+str(snps.count(0))+"\t"+str(pis.count(0))
     for i in range(1,max(max(set(snps))+1,max(set(pis))+1)):
         print >>statsout, str(i)+"\t"+str(snps.count(i)+pis.count(i))+"\t"+str(pis.count(i))
@@ -569,8 +570,8 @@ def makehaplos(WORK, outname, longname):
         if ">" in line:
             a,b = line.split(" ")[0],line.split(" ")[-1]
             a1,a2 = breakalleles(b.strip())
-            writing.append(a+"_0"+" "*(longname-len(a)+4)+a1)
-            writing.append(a+"_1"+" "*(longname-len(a)+4)+a2)
+            writing.append(a+"_0"+" "*(longname-len(a)+3)+a1)
+            writing.append(a+"_1"+" "*(longname-len(a)+3)+a2)
         else:
             writing.append(line.strip())
         loc += 1
@@ -595,7 +596,8 @@ def main(outgroup, minspecies, outname,
          maxSNP, muscle, exclude, overhang,
          outform, WORK, gids, CUT,
          a1, a2, datatype, subset,
-         version, mindepth, taxadict, seed):
+         version, mindepth, taxadict,
+         minhits, seed):
 
     " remove old temp files "
     if glob.glob(WORK+".chunk_*"):
@@ -702,8 +704,9 @@ def main(outgroup, minspecies, outname,
         
     " make treemix output "
     if "t" in formats:
-        loci2treemix.make(WORK, outname, taxadict)
+        if gids:
+            loci2treemix.make(WORK, outname, taxadict)
     
     " make migrate output "
-    #if 'm' in formats:
-    #    loci2migrate.make()
+    if 'm' in formats:
+        loci2mig.make(WORK, outname, taxadict, minhits, seed)

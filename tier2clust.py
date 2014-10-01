@@ -154,8 +154,9 @@ def main(UCLUST, ID, datatype,
         while 1:
             try: a = k.next()
             except StopIteration: break
-            if len(a[0].strip()) < 30:
-                out.write(a[0].strip()+" "*(30-len(a[0].strip()))+a[1])
+            if len(a[0].strip()) < 60:
+                " seriously, don't have names longer than 60 chars "
+                out.write(a[0].strip()+" "*(60-len(a[0].strip()))+a[1])
             else:
                 out.write(a[0].strip()+" "*((len(a[0].strip())+3)-len(a[0].strip()))+a[1])
                 print "long name lengths may cause errors"

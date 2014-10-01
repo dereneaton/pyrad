@@ -103,6 +103,5 @@ def make(WORK, outname, taxadict):
     outfile.write("\n".join(writing))
     outfile.close()
 
-
 if __name__ == "__main__":
     make(WORK, outname, taxadict)

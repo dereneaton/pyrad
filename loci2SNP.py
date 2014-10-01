@@ -22,7 +22,7 @@ def make(WORK, outname, names, formats, seed):
         Si[name] = []
 
     " for each locus select out the SNPs"
-    for loc in [i for i in finalfile.split("|")[:-1]]:
+    for loc in [i for i in finalfile.strip().split("|\n")[:]]:
         ns = []
         ss = []
         cov = {}  ## record coverage for each SNP

@@ -11,6 +11,7 @@ import glob
 import multiprocessing
 import subprocess
 from optparse import OptionParser
+from collections import OrderedDict
 #-----------
 import sortandcheck2
 import overlapcheck
@@ -22,7 +23,7 @@ import cluster_cons7_shuf
 import tier2clust
 import alignable
 import loci2vcf, loci2phynex, loci2treemix
-import loci2SNP
+import loci2SNP, loci2mig
 #------------
 import Dtest, Dtest_5, Dtest_foil
 import createfile
@@ -65,7 +66,7 @@ def main():
                          ' '*5+'---'*20+'\n\n')
         
         readin = [line.strip().split('##')[0].strip() for line in open(options.params).readlines()]
-        if "affected step" not in str(readin[0]):
+        if "==== " not in str(readin[38]):
             print "\n\twarning: update params input file format to latest version\n"; sys.exit()
 
         WORK     = str(readin[1])
@@ -82,6 +83,8 @@ def main():
         minsamp  = int(readin[12])
         maxpoly  = str(readin[13])
         outname  = str(readin[14])
+        ###########################
+        ## 15 is separator line
         ###########################
         subset   = str(readin[16])
         outgroup = str(readin[17])
@@ -121,7 +124,12 @@ def main():
         except ValueError: maxstack = "2SD"
         try: minuniq = int(readin[36])  
         except ValueError: minuniq = 0
-        try: clustprefix = readin[38:]
+        try: hierarch = int(readin[37])  
+        except ValueError: hierarch = 0
+        ###############################
+        ## 38 is separator line
+        ###############################
+        try: clustprefix = readin[39:]
         except IndexError: clustprefix = ""
         clustprefix = [i for i in clustprefix if i]
 
@@ -323,8 +331,8 @@ def main():
 
         ### step 6  ####################
         if '6' in k:
-
-            if not clustprefix:
+            if not hierarch:
+                gids = ""
                 if "," in subset:
                     inlist = [WORK+"clust"+wclust+"/"+i+".consens*" for i in subset.strip().split(",")]
                 else:
@@ -451,20 +459,16 @@ def main():
                     #      "\n\t in your output alignments list exclude names on line 17 of the params file.\n "
                     sys.exit()
             if any([i in outform for i in ['t','m']]):
-                print "\tgroups for 't' or 'm' outputs:",gids
-            taxadict = dict(zip(gids,groups))
+                if gids:
+                    print "\tgroups for 't' or 'm' outputs:", gids
+            taxadict = OrderedDict(zip(gids,groups))
             alignable.main(outgroup, minsamp, outname,
                            inclustfile, maxpoly, parallel,
                            maxSNP, muscle, exclude, overhang,
                            outform, WORK, gids, CUT,
                            a1, a2, datatype, subset,
                            parser.version.split(" ")[1],
-                           mindepth, taxadict, seed)
-
-            # if "v" in outform.strip().split(","):
-            #     loci2vcf.makeVCF(, WORK+"outfiles/"+outname+".loci",
-            #              mindepth, WORK+"outfiles/"+outname+".vcf")
-
+                           mindepth, taxadict, minhits, seed)
 
         if '8' in k:
             cluster7dp.main(WORK, parallel, wclust, mindepth, uclust,
