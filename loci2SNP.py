@@ -2,7 +2,10 @@
 import numpy as np
 import sys
 import gzip
-from collections import Counter
+try:
+    from collections import Counter
+except:
+    from counter import Counter
 from itertools import chain
 import alignable
 
