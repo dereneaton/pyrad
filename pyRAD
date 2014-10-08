@@ -13,7 +13,7 @@ import subprocess
 from optparse import OptionParser
 try:
     from collections import OrderedDict
-except:
+except ImportError:
     from ordereddict import OrderedDict
 #-----------
 import sortandcheck2

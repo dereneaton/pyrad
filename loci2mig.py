@@ -4,7 +4,7 @@ import sys
 import gzip
 try:
     from collections import Counter
-except:
+except ImportError:
     from counter import Counter
 import alignable
 
