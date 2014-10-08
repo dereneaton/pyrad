@@ -11,7 +11,10 @@ import glob
 import multiprocessing
 import subprocess
 from optparse import OptionParser
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 #-----------
 import sortandcheck2
 import overlapcheck
