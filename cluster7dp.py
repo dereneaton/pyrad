@@ -581,7 +581,7 @@ def main(WORK, Parallel, wclust, mindepth, UCLUST,
         if size.st_size > 0:
             FS = f
         else:
-            print "excluding "+f+" file is empty"
+            print "excluding "+f[0]+" file is empty"
 
     sys.stderr.write("\n\tde-replicating files for clustering...\n")
 
