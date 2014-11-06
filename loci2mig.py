@@ -3,6 +3,10 @@ import numpy as np
 import sys
 import gzip
 try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+try:
     from collections import Counter
 except ImportError:
     from counter import Counter
@@ -10,20 +14,22 @@ import alignable
 
 def make(WORK, outname, taxadict, minhits, seed):
 
-    print minhits
-    for i in taxadict:
-        print i, taxadict[i]
-
     ## outfile
     outfile = open(WORK+"/outfiles/"+outname+".migrate", 'w')
 
     ## cleanup taxadict
-    taxa = {}
+    taxa = OrderedDict()
     for group in taxadict:
         taxa[group] = []
         for samp in taxadict[group]:
             a = samp.split("/")[-1].replace(".consens.gz","")
             taxa[group].append(a)
+
+    print "\t    data set reduced for group coverage minimums"
+    for i,j in zip(taxa,minhits):
+        print "\t   ",i, taxa[i], "minimum=",j
+
+    #print taxadict.keys()
 
     ## filter data to only the loci that have data
     ## for at least N individuals in each pop
@@ -46,7 +52,7 @@ def make(WORK, outname, taxadict, minhits, seed):
     
     ## print all data for each population at a time
     done = 0
-    for group in taxa:
+    for group in taxadict:
         ## print a list of lengths of each locus
         if not done:
             loclens = [len(loc.split("\n")[0].split(" ")[-1]) for loc in keep]
@@ -67,7 +73,8 @@ def make(WORK, outname, taxadict, minhits, seed):
             seqs = [i.split(" ")[-1] for i in keep[loc].split("\n") if \
                     i.split(" ")[0].replace(">","") in taxa[group]]
             for i in range(len(seqs)):
-                print >>outfile, "ind"+"_"+str(i)+(" "*(10-len("ind"+"_"+str(i))))+seqs[i]
+                print >>outfile, group[0:8]+"_"+str(i)+\
+                      (" "*(10-len(group[0:8]+"_"+str(i))))+seqs[i]
             
     outfile.close()
 
