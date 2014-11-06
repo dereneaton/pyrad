@@ -3,23 +3,32 @@ import numpy as np
 import sys
 import gzip
 try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+try:
     from collections import Counter
 except ImportError:
     from counter import Counter
 import alignable
 
-def make(WORK, outname, taxadict):
 
-    ## cleanup taxadict
-    taxa = {}
+def make(WORK, outname, taxadict, minhits):
+
+    ## cleanup taxadict to just sample names
+    taxa = OrderedDict()
     for group in taxadict:
         taxa[group] = []
         for samp in taxadict[group]:
             a = samp.split("/")[-1].replace(".consens.gz","")
             taxa[group].append(a)
+
+    print "\t    data set reduced for group coverage minimums"        
+    for i,j in zip(taxa,minhits):
+        print "\t   ",i, taxa[i], 'minimum=',j
     
     ## read in data to sample names
-    infile = open(WORK+"/outfiles/"+outname+".unlinked_snps",'r')
+    infile = open(WORK.rstrip("/")+"/outfiles/"+outname+".unlinked_snps",'r')
     dat = infile.readlines()
     nsamp,nsnps = dat[0].strip().split(" ")
     nsamp = int(nsamp)
@@ -48,6 +57,7 @@ def make(WORK, outname, taxadict):
         else:
             alleles.append(['x','x'])
 
+    
     ## create a dictionary mapping sample names to SNPs    
     SNPS = {}
     for line in dat[1:]:
@@ -55,55 +65,35 @@ def make(WORK, outname, taxadict):
         SNPS[a] = b
 
     ## create a dictionary with empty lists for each taxon 
-    FREQ = {}
+    FREQ = OrderedDict()
     for tax in taxa:
         FREQ[tax] = []
 
     ## fill the FREQ dictionary with SNPs for all 
     ## samples in that taxon
+    keep = []
     for snp in range(int(nsnps)):
-        for tax in taxa:
-            freq = []
-            for samp in taxa[tax]:
-                freq.append(SNPS[samp][snp])
-            FREQ[tax].append(freq)
+        GG = []
+        for tax,mins in zip(taxa,minhits):
+            GG.append( sum([SNPS[i][snp] not in ["N","-"] for i in taxa[tax]]) >= int(mins))
+        if all(GG):
+            keep.append(snp)
+            for tax in FREQ:
+                FREQ[tax].append([SNPS[i][snp] for i in taxa[tax]])
 
-    ## create empty dictionary for SNP frequencies
-    FREQS = {}
-    for tax in taxa:
-        FREQS[tax] = []
-
-    ## fill FREQS dictionary with SNP frequencies of 
-    ## all samples for each taxon given the two most
-    ## common alleles (biallelic SNPs) at each site
-    for nloc in range(len(FREQ[FREQ.keys()[0]])):
-        for tax in FREQ:
-            zz = [m for m in FREQ[tax][nloc] if m not in list("-N")]
-            if len(zz)>0:
-                pp = []
-                for z in zz[0:]:
-                    if z in list("RKSYWM"):
-                        pp += alignable.unstruct(z)
-                    else:
-                        pp += [z,z]
-                FREQS[tax].append([str(pp).count(alleles[nloc][0]),str(pp).count(alleles[nloc][1])])
-            else:
-                FREQS[tax].append('xxxx')
-
-    ## write to a file for treemix input file
-    writing = [" ".join(FREQS.keys())]
-    for posnp in range(int(nsnps)):
-        xcheck = [FREQS[tax][posnp] for tax in FREQS]
-        if 'xxxx' not in xcheck:
-            if [0,0] not in xcheck:
-                ## remove sites that are not SNPs given
-                ## the subsampling of the data
-                if not all([x[1]==0 for x in xcheck]):
-                    xcheck = map(str,xcheck)
-                    writing.append(" ".join([xc.replace("[","").replace("]","").replace(" ","") for xc in xcheck]))
-
+    ## output files
     outfile = gzip.open(WORK+"/outfiles/"+outname+".treemix.gz",'w')
-    outfile.write("\n".join(writing))
+
+    ## print header
+    print >>outfile, " ".join(FREQ.keys())
+
+    ## print data
+    for i,j in enumerate(keep):
+        a1 = alleles[j][0]
+        a2 = alleles[j][1]
+        H = [str(FREQ[tax][i].count(a1))+","+str(FREQ[tax][i].count(a2)) for tax in FREQ]
+        print >>outfile, " ".join(H)
+
     outfile.close()
 
 if __name__ == "__main__":
