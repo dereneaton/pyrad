@@ -678,9 +678,10 @@ def main(outgroup, minspecies, outname,
 
     " check if output files already exist with this outname prefix "
     if os.path.exists(WORK+"outfiles/"+outname+".loci"):
-        print "\n\tdata set "+outname+".loci already exists"
-        print "\tskipping re-alignment and creating other data formats from the existing file"
-        print "\tdelete "+outname+".loci or change the outname prefix to create new aligned data sets\n"
+        print "\n\tData set "+outname+".loci already exists"
+        print "\t  Skipping re-alignment. Creating extra data formats from the existing file"
+        print "\t  To create a new .loci file and alignment delete "+outname+".loci or change"
+        print "\t  the outname prefix in the params file\n"
 
     else:
         " call alignment function to make .loci files"
