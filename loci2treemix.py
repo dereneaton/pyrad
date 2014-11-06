@@ -98,8 +98,11 @@ def make(WORK, outname, taxadict, minhits):
         a1 = alleles[j][0]
         a2 = alleles[j][1]
         H = [str(FREQ[tax][i].count(a1))+","+str(FREQ[tax][i].count(a2)) for tax in FREQ]
-        #print [FREQ[tax][i] for tax in FREQ]
-        print >>outfile, " ".join(H)
+        #print [FREQ[tax][i] for tax in FREQ], " ".join(H)
+
+        ## exclude non-biallelic SNPs
+        if "0,0" not in " ".join(H):
+            print >>outfile, " ".join(H)
 
     outfile.close()
 
