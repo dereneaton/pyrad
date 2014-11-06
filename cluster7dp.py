@@ -18,7 +18,11 @@ from potpour import Worker
 
 
 def makederepclust(outfolder,handle,w1,datatype):
-    Userout = open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".u"), 'r').readlines()
+    if os.path.exists(outfolder+"/"+handle.split("/")[-1].replace(".edit",".u")):
+        Userout = open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".u"), 'r').readlines()
+    else:
+        print "\n\tSkipping: no '.u' file available for sample",handle.split("/")[-1]
+        sys.exit()
     outfile = gzip.open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz"),'w')
 
     " load reads into a Dictionary"
@@ -543,7 +547,7 @@ def main(WORK, Parallel, wclust, mindepth, UCLUST,
     if not os.path.exists(WORK+'stats'):
         os.makedirs(WORK+'stats')
 
-    " remake option coming soon"
+    " remake option... in development"
     if remake:
         for ufile in glob.glob(outfolder+"/*.u"):
             infile = open(ufile).readlines()
@@ -674,8 +678,9 @@ def main(WORK, Parallel, wclust, mindepth, UCLUST,
             nothere = 1
         if not nothere:
             if submitted[handle]:
-                cmd = "/bin/rm "+outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz")
-                subprocess.call(cmd, shell=True)
+                if os.path.exists(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz")):
+                    cmd = "/bin/rm "+outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz")
+                    subprocess.call(cmd, shell=True)
 
 
 if __name__ == "__main__":
