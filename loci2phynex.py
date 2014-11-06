@@ -2,7 +2,7 @@
 import numpy as np
 
 
-def make(WORK, outname, names, longname, nex):
+def make(WORK, outname, names, longname, formats):
     " order names "
     names = list(names)
     names.sort()
@@ -27,28 +27,27 @@ def make(WORK, outname, names, longname, nex):
 
         ## delete those columns
         narray = np.delete(array, emps, 1)
+        minray = len("".join(narray[0]).replace("x",""))
 
         ## append data to dict
         for name in names:
             if name in anames:
-                F[name] += "".join(narray[anames.index(name)])
+                F[name] += "".join(narray[anames.index(name)]).replace("x","")
             else:
-                F[name] += "".join(["N"]*len(narray[0]))
+                F[name] += "".join(["N"]*minray)  #len(narray[0]))
 
+    #if 'p' in formats:
     " print out .PHY file "
     superout = open(WORK+"outfiles/"+outname+".phy",'w')
-    #superout = open(outfile,'w')
-
-    print >>superout, len(F), len("".join(F[names[0]]))
+    print >>superout, len(F), len("".join(F[names[0]]).replace("x",""))
 
     for name in names:
         print >>superout, name+(" "*((longname+3)-len(name)))+"".join(F[name])
     superout.close()
 
 
-    #######################################
-    " make nexus output "
-    if nex:
+    if 'n' in formats:
+        " make nexus output "
         data   = open(WORK+"outfiles/"+outname+".phy").readlines() 
         nexout = open(WORK+"outfiles/"+outname+".nex", 'w')
 
@@ -78,4 +77,4 @@ def make(WORK, outname, names, longname, nex):
         
 
 if __name__ == "__main__":
-    make(WORK, outfile, names, longname, nex)
+    make(WORK, outfile, names, longname, formats)
