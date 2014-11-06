@@ -491,7 +491,7 @@ def DoStats(ingroup, outgroups, outname,
 
     " message to screen "
     print "\n\tfinal stats written to:\n\t "+WORK+"stats/"+outname+".stats"
-    print "\toutput files written to:\n\t "+WORK+"outfiles/ directory\n"
+    print "\toutput files being written to:\n\t "+WORK+"outfiles/ directory\n"
 
     " open stats file for writing, and loci file for reading "
     statsout  = open(WORK+"stats/"+outname+".stats",'w')   
@@ -676,37 +676,60 @@ def main(outgroup, minspecies, outname,
     " find longest name for prettier output files "
     longname = max(map(len, list(ingroup)+list(outgroup)))
 
-    " call alignment function to make .loci files"
-    locus = makealign(ingroup, minspecies, outname, infile,
-                      MAXpoly, parallel, s1, s2, muscle,
-                      exclude, overhang, WORK, CUT,
-                      a1, a2, datatype, longname)
+    " check if output files already exist with this outname prefix "
+    if os.path.exists(WORK+"outfiles/"+outname+".loci"):
+        print "\n\tdata set "+outname+".loci already exists"
+        print "\tskipping re-alignment and creating other data formats from the existing file"
+        print "\tdelete "+outname+".loci or change the outname prefix to create new aligned data sets\n"
 
-    " make stats output "
-    DoStats(ingroup, outgroup, outname, 
-            WORK, minspecies,longname)
+    else:
+        " call alignment function to make .loci files"
+        locus = makealign(ingroup, minspecies, outname, infile,
+                          MAXpoly, parallel, s1, s2, muscle,
+                          exclude, overhang, WORK, CUT,
+                          a1, a2, datatype, longname)
+
+        " make stats output "
+        DoStats(ingroup, outgroup, outname, 
+                WORK, minspecies,longname)
+
 
     " make other formatted files "
     formats = outform.split(",")
 
     " make phy, nex, SNP, uSNP, structure"
-    makenex = bool('n' in formats)
-    loci2phynex.make(WORK,outname,names,longname,makenex)
-    loci2SNP.make(WORK, outname, names, formats, seed)
+    if any([i in formats for i in ['n','p']]):
+        if 'n' in formats:
+            print "\twriting nexus file"
+        if 'p' in formats:
+            print "\twriting phylip file"
+        loci2phynex.make(WORK,outname,names,longname, formats)
+
+    if any([i in formats for i in ['u','s','k','t']]):
+        print "\twriting unlinked SNPs file"
+        if 's' in formats:
+            print "\t  + writing full SNPs file"
+        if 'k' in formats:
+            print "\t  + writing STRUCTURE file"            
+        loci2SNP.make(WORK, outname, names, formats, seed)
+
+    " make treemix output "
+    if "t" in formats:
+        print "\t  + writing treemix file"
+        if gids:
+            loci2treemix.make(WORK, outname, taxadict, minhits)
 
     " make vcf "
     if 'v' in formats:
+        print "\twriting vcf file"
         loci2vcf.make(WORK, version, outname, mindepth, names)
     
     " make alleles output "
     if "a" in formats:
+        print "\twriting alleles file"
         makehaplos(WORK,outname,longname)
-        
-    " make treemix output "
-    if "t" in formats:
-        if gids:
-            loci2treemix.make(WORK, outname, taxadict)
     
     " make migrate output "
     if 'm' in formats:
+        print "\twriting migrate-n file"
         loci2mig.make(WORK, outname, taxadict, minhits, seed)
