@@ -36,7 +36,7 @@ from potpour import Worker
 
 
 def main():
-    parser = OptionParser(prog="pyRAD", usage="%prog [options]", version="%prog 2.16.1")
+    parser = OptionParser(prog="pyRAD", usage="%prog [options]", version="%prog 2.17")
     parser.add_option('-p', action="store", type="string", dest="params",
                       help="input file for within sample filtering and clustering\n")
     parser.add_option('-s', action="store", dest="steps",
@@ -176,15 +176,26 @@ def main():
         minhits = []
         "hierarchical clustering "
         for line in clustprefix:
-            gid, hits, inds = line.strip().split(" ")
+            gid, hits, inds = line.strip().split()
             gids.append(gid)
             minhits.append(hits)
-            if "*" in inds:
-                expanded = glob.glob(WORK+"clust"+wclust+"/"+inds+".consens*")
-                groups.append(expanded)
+            if "," in inds:
+                thisgroup = []
+                ii = inds.split(",")
+                for i in ii:
+                    if "*" in i:
+                        expanded = glob.glob(WORK+"clust"+wclust+"/"+i+".consens*")
+                        [thisgroup.append(i) for i in expanded]
+                    else:
+                        thisgroup.append(WORK+"clust"+wclust+"/"+i+".consens.gz")
+                groups.append(thisgroup)
             else:
-                inds = inds.split(",")
-                groups.append([WORK+"clust"+wclust+"/"+i+".consens.gz" for i in inds])
+                if "*" in inds:
+                    expanded = glob.glob(WORK+"clust"+wclust+"/"+inds+".consens*")
+                    groups.append(expanded)
+                else:
+                    inds = inds.split(",")
+                    groups.append([WORK+"clust"+wclust+"/"+i+".consens.gz" for i in inds])
             "TODO check for size=1 "
         if not gids:
             gids = ""
@@ -314,6 +325,9 @@ def main():
                             None
                         Hl.append(float(h))
                         El.append(float(e))
+                    if len(Hl) == 0:
+                        print "\n\terror in step 4, no estimates in file stats/Pi_E_estimate.txt"
+                        sys.exit()
                     H = sum(Hl)/len(Hl)
                     E = sum(El)/len(El)
                 else:
@@ -461,9 +475,9 @@ def main():
                     #print "\n\t if you wish to exclude samples from an existing cat.clust file "+\
                     #      "\n\t in your output alignments list exclude names on line 17 of the params file.\n "
                     sys.exit()
-            if any([i in outform for i in ['t','m']]):
-                if gids:
-                    print "\tgroups for 't' or 'm' outputs:", gids
+            #if any([i in outform for i in ['t','m']]):
+            #    if gids:
+            #        print "\tgroups for 't' or 'm' outputs:", gids
             taxadict = OrderedDict(zip(gids,groups))
             alignable.main(outgroup, minsamp, outname,
                            inclustfile, maxpoly, parallel,
