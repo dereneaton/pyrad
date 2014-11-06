@@ -38,7 +38,6 @@ def make(WORK, outname, taxadict, minhits):
     ## read SNP matrix into a numpy.array
     for line in range(len(dat[1:])):
         a,b = dat[1:][line].split()
-        b = b[0:nsnps]
         NDATA[line] = list(b)
     sites = np.transpose(NDATA)
 
@@ -46,20 +45,20 @@ def make(WORK, outname, taxadict, minhits):
     ## at every SNP site, save to a list
     alleles = []
     for site in sites:
+        ds = []
         for s in site:
             if s in list("RKSYWM"):
-                site = np.append(site,alignable.unstruct(s))
-        snp = [s for s in site if s not in list("-NRKSYWM")]
-        a = Counter(snp).most_common(2)
-        if len(a)>1:
-            c,d = a
-            alleles.append([c[0][0],d[0][0]])
-        else:
-            alleles.append(['x','x'])
+                ds.append(alignable.unstruct(s)[0])
+                ds.append(alignable.unstruct(s)[1])
+            else:
+                ds.append(s)
+                ds.append(s)
+        snp = [s for s in ds if s not in ["N",'-']]
+        a = Counter(snp).most_common(3)
+        alleles.append([a[0][0],a[1][0]])
 
-    
     ## create a dictionary mapping sample names to SNPs    
-    SNPS = {}
+    SNPS = OrderedDict()
     for line in dat[1:]:
         a,b = line.split()
         SNPS[a] = b
@@ -71,15 +70,22 @@ def make(WORK, outname, taxadict, minhits):
 
     ## fill the FREQ dictionary with SNPs for all 
     ## samples in that taxon
-    keep = []
+    keeps = []
     for snp in range(int(nsnps)):
         GG = []
         for tax,mins in zip(taxa,minhits):
             GG.append( sum([SNPS[i][snp] not in ["N","-"] for i in taxa[tax]]) >= int(mins))
         if all(GG):
-            keep.append(snp)
-            for tax in FREQ:
-                FREQ[tax].append([SNPS[i][snp] for i in taxa[tax]])
+            keeps.append(snp)
+
+    for keep in keeps:
+        for tax in FREQ:
+            bunch = []
+            for i in taxa[tax]:
+                #print tax, i, SNPS[i][keep]
+                bunch.append(alignable.unstruct(SNPS[i][keep])[0])
+                bunch.append(alignable.unstruct(SNPS[i][keep])[1])
+            FREQ[tax].append("".join(bunch))
 
     ## output files
     outfile = gzip.open(WORK+"/outfiles/"+outname+".treemix.gz",'w')
@@ -88,10 +94,11 @@ def make(WORK, outname, taxadict, minhits):
     print >>outfile, " ".join(FREQ.keys())
 
     ## print data
-    for i,j in enumerate(keep):
+    for i,j in enumerate(keeps):
         a1 = alleles[j][0]
         a2 = alleles[j][1]
         H = [str(FREQ[tax][i].count(a1))+","+str(FREQ[tax][i].count(a2)) for tax in FREQ]
+        #print [FREQ[tax][i] for tax in FREQ]
         print >>outfile, " ".join(H)
 
     outfile.close()
