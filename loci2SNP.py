@@ -87,6 +87,7 @@ def make(WORK, outname, names, formats, seed):
             print >>snpsout, i+(" "*(longname-len(i)+3))+"".join(S[i])
         snpsout.close()
 
+
     " print out .USNP file "
     snpout = open(WORK+'outfiles/'+outname+".unlinked_snps",'w')
     print >>snpout, len(Si),len("".join(Si.values()[0]))
@@ -94,25 +95,43 @@ def make(WORK, outname, names, formats, seed):
         print >>snpout, i+(" "*(longname-len(i)+3))+"".join(Si[i])
     snpout.close()
 
-    "print out .str (structure) file "
     if 'k' in formats:
-        " array of SNP data "
-        N = np.array([list(Si[i]) for i in SF])
 
-        " column of names "
-        namescol = list(chain( * [[i+(" "*(longname-len(i)+3)),
-                                   i+(" "*(longname-len(i)+3))] for i in SF] ))
-        " add blank columns "
-        empty = np.array(["" for i in xrange(len(SF)*2)])
-        OUT = np.array([namescol,empty,empty,empty,empty,empty,empty])
-        for col in xrange(len(N[0])):
-            l = N[:,col]
-            h = [alignable.unstruct(j) for j in l]
-            h = list(chain(*h))
-            bases = list("ATGC")
-            final = [bases.index(i) if i not in list("-N") else '-9' for i in h]
-            OUT = np.vstack([OUT, np.array(final)])
-        np.savetxt(WORK+'outfiles/'+outname+".str", OUT.transpose(), fmt="%s", delimiter="\t")
+        "print out .str (structure) file "
+        structout = open(WORK+'outfiles/'+outname+".str", 'w')
+        
+        B = {'A': '0',
+             'T': '1',
+             'G': '2',
+             'C': '3',
+             'N': '-9',
+             '-': '-9'}
+
+        for line in SF:
+            print >>structout, line+(" "*(longname-len(line)+3))+\
+                        "\t"*6+"\t".join([B[alignable.unstruct(j)[0]] for j in Si[line]])
+            print >>structout, line+(" "*(longname-len(line)+3))+\
+                     "\t"*6+"\t".join([B[alignable.unstruct(j)[1]] for j in Si[line]])
+
+        structout.close()
+        
+        # " array of SNP data "
+        # N = np.array([list(Si[i]) for i in SF])
+
+        # " column of names "
+        # namescol = list(chain( * [[i+(" "*(longname-len(i)+3)),
+        #                            i+(" "*(longname-len(i)+3))] for i in SF] ))
+        # " add blank columns "
+        # empty = np.array(["" for i in xrange(len(SF)*2)])
+        # OUT = np.array([namescol,empty,empty,empty,empty,empty,empty])
+        # for col in xrange(len(N[0])):
+        #     l = N[:,col]
+        #     h = [alignable.unstruct(j) for j in l]
+        #     h = list(chain(*h))
+        #     bases = list("ATGC")
+        #     final = [bases.index(i) if i not in list("-N") else '-9' for i in h]
+        #     OUT = np.vstack([OUT, np.array(final)])
+        # np.savetxt(WORK+'outfiles/'+outname+".str", OUT.transpose(), fmt="%s", delimiter="\t")
 
 
 if __name__ == "__main__":
