@@ -510,9 +510,9 @@ def main():
                 if "##" in line:
                     tax,notes = line.strip().split("##")[0], line.strip().split("##")[-1], 
                     if tax:
-                        tests.append([tax.strip().split("\t"),notes.strip()])
+                        tests.append([tax.strip().split(), notes.strip()])   #.split("\t"),notes.strip()])
                 else:
-                    tests.append(line.strip().split("\t"))
+                    tests.append(line.strip().split()) # "\t"))
         if ntax == '4':
             Dtest.main(tests,alignfile,outfile,nboots,nproc,makesort,makeboots)
         elif ntax == 'part':
