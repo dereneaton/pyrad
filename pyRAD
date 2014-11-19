@@ -365,7 +365,7 @@ def main():
                 minhits = []
                 "hierarchical clustering "
                 for line in clustprefix:
-                    gid, hits, inds = line.strip().split(" ")
+                    gid, hits, inds = line.strip().split()
                     gids.append(gid)
                     minhits.append(hits)
                     groups[gid] = []
