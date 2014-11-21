@@ -578,7 +578,7 @@ def makehaplos(WORK, outname, longname):
 
         " print every 10K loci "
         if not loc % 10000:
-            outfile.write("\n".join(writing))
+            outfile.write("\n".join(writing)+"\n")
             writing = []
             
     outfile.write("\n".join(writing))
