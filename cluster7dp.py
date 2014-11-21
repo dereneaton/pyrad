@@ -217,7 +217,7 @@ def stats(outfolder, handle, mindepth, multihits):
     infile = gzip.open(temphandle)
     L = itertools.izip(*[iter(infile)]*2)
     try: a = L.next()[0]
-    except StopIteration: print "no clusters found in ",temphandle
+    except StopIteration: print "no clusters found in ",temphandle+"\n\n"; sys.exit()
     depth = []
     d = int(a.split(";")[1].replace("size=",""))
     while 1:
