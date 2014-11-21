@@ -217,6 +217,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
     Dic = {}
     Errors = []
     haplo = []
+    Plist = []
     locus = minsamplocus = npoly = P = 0
     while 1:
         try: first = k.next()
@@ -229,7 +230,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
         S       = []         ## list for sequence data
         alleles = []         ## for measuring # alleles, detect paralogs
         locus += 1           ## recording n loci
-        diploid = 0          ## for measuring # alleles, detect paralogs
+        ploidy = 0          ## for measuring # alleles, detect paralogs
         nHs = 0              ## will record heterozygous sites in this locus
         consensus = ""       ## empty vector for consensus sequence
         basenumber = 1       ## for recording error locations
@@ -359,7 +360,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
             " only allow maxH polymorphic sites in a locus "
             if "@" not in consensus:
                 if nHs <= maxH:
-                    " filter to limit to N haplotypes (diploid) "
+                    " filter to limit to N haplotypes (e.g., diploid) "
                     if haplos:
                         al = []
                         if len(alleles) > 1:
@@ -378,16 +379,19 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                                 #al = [i for i in al if al.count(i) > len(al)/25.]
 
                             AL = sorted(set(al), key=al.count)
-                            diploid = len(AL)
+                            ploidy = len(AL)
+                            Plist.append(ploidy)
+                            
                             " set correct alleles relative to first polymorphic base"
                             if AL:
-                                if diploid <= haplos:    #haplos:
+                                if ploidy <= haplos:  
                                     sss = [zz-1 for zz in alleles]
                                     consensus = findalleles(consensus,sss,AL)
                                 else:
                                     consensus += "@E"
 
-                    
+                        else: Plist.append(1)
+                        
                     if "@" not in consensus:
                         " strip N's from either end "
                         shortcon = consensus.lstrip("N").rstrip("N").replace("-","N")
@@ -399,6 +403,9 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                                 Dic[fname] = shortcon
 
 
+    #with open(infile.replace(".clustS",".ploids"),'w+') as ploidout:
+    #    ploidout.write(",".join(map(str,Plist)))
+    
     consens = gzip.open(infile.replace(".clustS",".consens"),'w+')
     for i in Dic.items():
         consens.write(str(i[0])+'\n'+str(i[1])+"\n")
@@ -507,7 +514,7 @@ def main(Parallel, E, H, ID, mindepth, subset,
     print >>stats,  "taxon"+" "*15+"\tnloci\tf1loci\tf2loci\tnsites\tnpoly\tpoly"
     for i in range(submitted):
         a,b,c,d,e,f,g = result_queue.get()
-        print >> stats, "\t".join(map(str,[a+" "*(20-len(a)),b,c,d,e,f,g]))
+        print >> stats, "\t".join(map(str,[a.replace(".clustS.gz","")+" "*(20-len(a)),b,c,d,e,f,g]))
     print >>stats, """
     ## nloci = number of loci
     ## f1loci = number of loci with >N depth coverage
