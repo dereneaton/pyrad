@@ -8,6 +8,7 @@ import glob
 import subprocess
 import operator
 import gzip
+import re
 from potpour import Worker
 
 
@@ -29,12 +30,17 @@ def makederepclust(outfolder,handle,w1,datatype):
     D = {}
     f = open(handle.replace(".edit",".derep")).read()
     for line in f.split(">")[1:]:
-        a,b,c = line.replace("\n","").split(";")
+        line = line.replace(";\n","\n",1) # Workaround to comply with both vsearch and usearch
+        a,b,c = line.replace("\n",";",1).replace("\n","").split(";")
         D[">"+a+";"+b+";"] = [int(b.replace("size=","")),c.strip()]
 
     " create dictionary of .u file cluster hits info "
     U = {}
     for line in [line.split("\t") for line in Userout]:
+        if line[1].endswith(";") == False: # Workaround to comply with both vsearch and usearch
+                line[1] += ";"
+                line[0] += ";"
+                line[5] = re.sub("\..*\n","\n", line[5])
         if ">"+line[1] in U:
             U[">"+line[1]].append([">"+line[0],line[4],line[5].strip(),line[3]])
         else:
@@ -110,7 +116,6 @@ def derep(UCLUST, handle, datatype, minuniq):
         M+\
         " -output "+handle.replace(".edit",".step")+\
         " -sizeout "+\
-        " -quiet "+\
         " -threads 1"
     subprocess.call(cmd, shell=True)
 
@@ -123,8 +128,7 @@ def sortbysize(UCLUST, handle):
     output to .derep file """
     cmd = UCLUST+\
           " -sortbysize "+handle.replace(".edit",".step")+\
-          " -output "+handle.replace(".edit",".derep")+\
-          " -quiet "
+          " -output "+handle.replace(".edit",".derep")
     subprocess.call(cmd, shell=True)
     cmd2 = "/bin/rm "+handle.replace(".edit",".step")
     subprocess.call(cmd2, shell=True)
@@ -206,8 +210,7 @@ def fullcluster(UCLUST, outfolder, handle, wclust, Parallel, datatype, fileno):
         " -minsl 0.5"+\
         " -fulldp"+\
         " -usersort "+\
-        " -notmatched "+outfolder+"/"+handle.split("/")[-1].replace(".edit","._temp")+\
-        " -quiet"
+        " -notmatched "+outfolder+"/"+handle.split("/")[-1].replace(".edit","._temp")
     subprocess.call(cmd, shell=True)
 
 

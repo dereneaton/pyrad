@@ -76,10 +76,6 @@ def cluster(UCLUST, handle, ID, datatype,
     else:
         P = " -leftjust "
         COV = " -query_cov .90 " 
-    if quiet:
-        Q = " -quiet "
-    else:
-        Q = " "
     cmd = UCLUST+\
         C+\
         P+\
@@ -91,8 +87,7 @@ def cluster(UCLUST, handle, ID, datatype,
         " -fulldp"+\
         " -usersort"+\
         COV+\
-        N+\
-        Q
+        N
     os.system(cmd)
 
 
