@@ -4,7 +4,7 @@ import sys
 
 def main(version):
     output = """
-==== parameter inputs for pyRAD version %s  ============================  affected step ==
+==** parameter inputs for pyRAD version %s  **==========================  affected step ==
 ./                          ## 1. Working directory                                 (all)
 ./*.fastq.gz                ## 2. Loc. of non-demultiplexed files (if not line 18)  (s1)
 ./*.barcodes                ## 3. Loc. of barcode file (if not line 18)             (s1)
@@ -42,6 +42,7 @@ c88d6m4p3                   ## 14. prefix name for final output (no spaces)     
                        ## 34.opt.: max stack size (int), def= max(500,mean+2*SD)    (s3)
                        ## 35.opt.: minDerep: exclude dereps with <= N copies, def=0 (s3)
                        ## 36.opt.: hierarch. cluster groups (def.=0, 1=yes)         (s6)
+                       ## 37.opt.: repeat masking (def.= 1 ='dust' method, 0=no)    (s3,s6)
 ==== list hierachical cluster groups below this line ====================================="""  % (version)
     outfile = open("params.txt",'w')
     print >>sys.stderr, "\tnew params.txt file created"
