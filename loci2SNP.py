@@ -114,6 +114,34 @@ def make(WORK, outname, names, formats, seed):
                      "\t"*6+"\t".join([B[alignable.unstruct(j)[1]] for j in Si[line]])
 
         structout.close()
+
+    if 'g' in formats:
+        "print out .geno file "
+        genoout = open(WORK+'outfiles/'+outname+".geno", 'w')
+        #mapout = open(WORK+'outfiles/'+outname+".map", 'w')        
+
+        ## print headers
+        #print >>genoout, "Marker_ID\tChr_No\tChr_Pos\tdbSNP_rs\t"+"\t".join(SF)
+        #print >>genoout, "Sample_Type\t#\t#\t#\t"+"\t".join([str(0) for i in range(len(SF))])
+
+        ## print data
+        #for line in SF:
+        #    print >>genoout, line+(" "*(longname-len(line)+3))+"-\t-\t-\t"+\
+        #          "\t".join(["/".join(alignable.unstruct(j)) for j in np.array(Si).T[line]])
+        #k = 1000
+        #for i in range(len(Si.values()[0])):
+            #print >>genoout, "SNP_"+str(i)+"\t1\t"+str(k)+"\tSNP_"+str(i)+"\t"+\
+            #      "\t".join(["/".join(alignable.unstruct(Si[j][i])) for j in SF])
+            #print >>mapout, "1\tSNP_"+str(i)+"\t0\t"+str(k)
+            #k += 1000
+
+        for i in range(len(Si.values()[0])):
+            ref = Si[SF[0]][i]
+            print >>genoout, "".join(map(str,[alignable.unstruct(Si[j][i]).count(ref) for j in SF]))
+
+        #mapout.close()
+        genoout.close()
+        
         
         # " array of SNP data "
         # N = np.array([list(Si[i]) for i in SF])
