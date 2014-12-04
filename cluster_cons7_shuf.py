@@ -194,7 +194,8 @@ def splitter(handle):
     cnts = 0
     for d in dp:
         n,s = d
-        s1,s2 = s.split("XXXX")
+        ## checking fix to pairddrad splitting problem...
+        s1 = s.split("XX")[0]
         ff.append(n+s1+"\n")
         cnts += 1
     orderfirsts.write("".join(ff))
