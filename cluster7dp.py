@@ -51,9 +51,9 @@ def makederepclust(outfolder,handle,w1,datatype):
     SEQS = []
     for key,values in U.items():
         seq = key+"\n"+D[key][1]+'\n'
-        S    = [i[0] for i in values]  ## names of matches
-        R    = [i[1] for i in values]  ## + or - for strands
-        Cov  = [int(i[2]) for i in values]  ## query coverage
+        S    = [i[0] for i in values]       ## names of matches
+        R    = [i[1] for i in values]       ## + or - for strands
+        Cov  = [int(float(i[2])) for i in values]  ## query coverage (overlap)
         ins = [int(i[3]) for i in values]
         " allow only 'w1' indels in hits to seed"
         if not any([int(i) > int(w1) for i in ins]):
@@ -101,6 +101,10 @@ def makederepclust(outfolder,handle,w1,datatype):
 
 def derep(UCLUST, handle, datatype, minuniq):
     """ dereplicates reads and write to .step file """
+    if 'vsearch' in UCLUST:
+        T = ""
+    else:
+        T = "-threads 1"
     C = " -derep_fulllength "+handle
     if datatype in ['pairgbs','gbs']:
         P = " -strand both "
@@ -116,9 +120,8 @@ def derep(UCLUST, handle, datatype, minuniq):
         M+\
         " -output "+handle.replace(".edit",".step")+\
         " -sizeout "+\
-        " -threads 1"
-    subprocess.call(cmd, shell=True)
-
+        T
+    subprocess.call(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
 
 
 
@@ -129,12 +132,13 @@ def sortbysize(UCLUST, handle):
     cmd = UCLUST+\
           " -sortbysize "+handle.replace(".edit",".step")+\
           " -output "+handle.replace(".edit",".derep")
-    subprocess.call(cmd, shell=True)
+    subprocess.call(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
     cmd2 = "/bin/rm "+handle.replace(".edit",".step")
     subprocess.call(cmd2, shell=True)
 
 
 
+## SKIP FOR VSEARCH
 def splitbigfilesforderep(FS,UCLUST,datatype,minuniq):
     """ work around 4GB limit of 32-bit usearch
     by splitting files for derep then rejoining """
@@ -184,7 +188,7 @@ def splitbigfilesforderep(FS,UCLUST,datatype,minuniq):
 
 
 
-def fullcluster(UCLUST, outfolder, handle, wclust, Parallel, datatype, fileno):
+def fullcluster(UCLUST, outfolder, handle, wclust, Parallel, datatype, fileno, MASK, threads):
     if datatype == 'pairddrad':
         C = " -cluster_smallmem "+handle.replace(".edit",".firsts")
     else:
@@ -198,10 +202,15 @@ def fullcluster(UCLUST, outfolder, handle, wclust, Parallel, datatype, fileno):
     else:     ## rad, ddrad, ddradmerge
         P = " -leftjust "
         COV = " -query_cov .90"
+    if 'vsearch' in UCLUST:
+        Q = ""
+    else:
+        Q = " -qmask "+MASK
     cmd = UCLUST+\
         C+\
         P+\
         COV+\
+        Q+\
         " -id "+wclust+\
         " -userout "+outfolder+"/"+handle.split("/")[-1].replace(".edit",".u")+\
         " -userfields query+target+id+gaps+qstrand+qcov"+\
@@ -209,9 +218,10 @@ def fullcluster(UCLUST, outfolder, handle, wclust, Parallel, datatype, fileno):
         " -maxrejects 0"+\
         " -minsl 0.5"+\
         " -fulldp"+\
+        " -threads "+`threads`+\
         " -usersort "+\
         " -notmatched "+outfolder+"/"+handle.split("/")[-1].replace(".edit","._temp")
-    subprocess.call(cmd, shell=True)
+    subprocess.call(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
 
 
 
@@ -254,7 +264,7 @@ def stats(outfolder, handle, mindepth, multihits):
     hist = [float(i)/sum(ohist) for i in ohist]
     hist = [int(round(i*30)) for i in hist]
 
-    sys.stderr.write("\t"+handle.split("/")[-1]+" "+"finished, "+str(len(depth))+"loci\n")
+    sys.stderr.write("\tsample "+handle.split("/")[-1].split(".")[0]+" finished, "+str(len(depth))+"loci\n")
     del depth,keep
     return out,edges,hist,ohist
 
@@ -281,7 +291,6 @@ def sortalign(stringnames):
 def alignfast(names,seqs,muscle):
     """ performs muscle alignments on cluster and returns output as string"""
     ST = "\n".join('>'+i+'\n'+j for i,j in zip(names,seqs))
-    #cmd = "echo '"+ST+"' | "+muscle+" -gapopen -500 -quiet -in -"
     cmd = "/bin/echo '"+ST+"' | "+muscle+" -quiet -in -"
     p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
@@ -476,7 +485,7 @@ def splitter(handle):
 
 def final(UCLUST, outfolder, handle, wclust, mindepth,
           Parallel, muscle, datatype, fileno,
-          w1, w2, WORK, minuniq, remake):
+          w1, w2, WORK, minuniq, MASK, threads, remake):
 
     multihits = 0
     if not remake:
@@ -490,11 +499,13 @@ def final(UCLUST, outfolder, handle, wclust, mindepth,
                 splitter(handle)
 
         " cluster the reads "
-        fullcluster(UCLUST, outfolder, handle, wclust, Parallel, datatype, fileno)
+        fullcluster(UCLUST, outfolder, handle, wclust, Parallel, datatype, fileno, MASK, threads)
 
     " build cluster files from .u & .temp files "
     makederepclust(outfolder, handle, w1, datatype)
 
+    ## if using usearch align data right after clustering using the same processor
+    ## but if using vsearch then align data later ...
     " align clusters w/ muscle "
     if 'pair' in datatype:
         multihits = alignwrapPAIR(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz"),
@@ -525,13 +536,22 @@ def cmd_exists(cmd):
 
 def main(WORK, Parallel, wclust, mindepth, UCLUST,
          subset, datatype, muscle, w1, w2, 
-         minuniq, remake):
+         minuniq, MASK, remake):
 
 
     " find usearch"
     if not cmd_exists(UCLUST):
         print "\tcannot find usearch, edit path in input file"
         sys.exit()
+
+    " usearch or vsearch threading method"
+    if 'vsearch' in UCLUST:
+        ## trying current default of 6 threads per processor
+        ## could do testing to find optimal partitioning...
+        ## memory limitations become a concern eventually
+        threads = 6
+    else:
+        threads = 1
 
     " find muscle"
     if not cmd_exists(muscle):
@@ -581,7 +601,7 @@ def main(WORK, Parallel, wclust, mindepth, UCLUST,
             FS[i] = FS[i],statinfo.st_size
         FS.sort(key=operator.itemgetter(1), reverse = True)
         FS = [i[0] for i in FS]
-        #FS = FS[::-1]
+
     else:
         f = glob.glob(WORK+"edits/"+subset+"*.edit*")
         size = os.stat(f[0])
@@ -592,12 +612,13 @@ def main(WORK, Parallel, wclust, mindepth, UCLUST,
 
     sys.stderr.write("\n\tde-replicating files for clustering...\n")
 
-    " do not split big files if using 64-bit usearch, else..."
-    " reads whole file into memory, so not parallelized "
-    ## TODO: check if dereps already exist..
+
+    """ do not split big files if using 64-bit Usearch,
+    or if using Vsearch, else do it to avoid 4GB limit of 32-bit usearch"""
     if not remake:
         if "64" not in UCLUST:
-            splitbigfilesforderep(FS, UCLUST, datatype, minuniq)
+            if "vsearch" not in UCLUST:
+                splitbigfilesforderep(FS, UCLUST, datatype, minuniq)
 
     " load work queue"
     work_queue = multiprocessing.Queue()
@@ -618,7 +639,7 @@ def main(WORK, Parallel, wclust, mindepth, UCLUST,
         if outfolder+"/"+handle.split("/")[-1].replace(".edit",".clustS.gz") not in glob.glob(outfolder+"/*"):
             work_queue.put([UCLUST,outfolder,handle,wclust,mindepth,
                             Parallel,muscle,datatype,fileno, w1, w2, 
-                            WORK, minuniq, remake])
+                            WORK, minuniq, MASK, threads, remake])
             submitted[handle] = 1
             fileno += 1
         else:
