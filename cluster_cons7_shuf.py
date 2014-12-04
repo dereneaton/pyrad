@@ -48,7 +48,7 @@ def cmd_exists(cmd):
 
 
 def cluster(UCLUST, handle, ID, datatype,
-            quiet, WORK, gid):
+            quiet, WORK, gid, MASK):
 
     if datatype == 'pairddrad':
         " use first files for split clustering "
@@ -75,10 +75,18 @@ def cluster(UCLUST, handle, ID, datatype,
         COV = " -query_cov .90 "  ## this can vary 
     else:
         P = " -leftjust "
-        COV = " -query_cov .90 " 
+        COV = " -query_cov .90 "
+    if 'vsearch' not in UCLUST:
+        Q = ""
+        T = " -threads 1"
+    else:
+        Q = " -qmask "+MASK
+        T = " -threads 6"
     cmd = UCLUST+\
         C+\
         P+\
+        Q+\
+        T+\
         " -id "+ID+\
         U+\
         " -userfields query+target+id+gaps+qstrand+qcov"+\
@@ -210,7 +218,7 @@ def makecons(UCLUST, ID, datatype,
 
     " find usearch"
     if not cmd_exists(UCLUST):
-        print "\tcannot find usearch, edit path in input file"
+        print "\tcannot find usearch (or vsearch), edit path in param file"
         sys.exit()
 
     " make list of consens files "
@@ -350,7 +358,7 @@ def makecons(UCLUST, ID, datatype,
 
 def main(UCLUST, ID, datatype, 
          outg, seed, gid, minmatch, inlist,
-         WORK, quiet):
+         WORK, MASK, quiet):
 
     outhandle = WORK+"clust"+ID+"/cat.haplos_"+gid
 
@@ -360,9 +368,9 @@ def main(UCLUST, ID, datatype,
 
     if datatype == 'pairddrad':
         splithandle = splitter(outhandle)
-        cluster(UCLUST,splithandle,ID,datatype,quiet,WORK, gid)
+        cluster(UCLUST,splithandle,ID,datatype,quiet,WORK, gid, MASK)
     else:
-        cluster(UCLUST,outhandle,ID,datatype,quiet,WORK, gid)
+        cluster(UCLUST,outhandle,ID,datatype,quiet,WORK, gid, MASK)
 
     " remake clusters with .haplos, .u, and .temp files"
     makeclust(outhandle,datatype,gid,minmatch,WORK)
