@@ -56,7 +56,7 @@ def make(WORK, outname, taxadict, minhits, seed):
     for group in taxadict:
         ## print a list of lengths of each locus
         if not done:
-            loclens = [len(loc.split("\n")[0].split(" ")[-1]) for loc in keep]
+            loclens = [len(loc.split("\n")[0].split(" ")[-1].replace("x","")) for loc in keep]
             print >>outfile, " ".join(map(str,loclens))
             done += 1
 
@@ -75,7 +75,7 @@ def make(WORK, outname, taxadict, minhits, seed):
                     i.split(" ")[0].replace(">","") in taxa[group]]
             for i in range(len(seqs)):
                 print >>outfile, group[0:8]+"_"+str(i)+\
-                      (" "*(10-len(group[0:8]+"_"+str(i))))+seqs[i]
+                      (" "*(10-len(group[0:8]+"_"+str(i))))+seqs[i].replace("x","")
             
     outfile.close()
 
