@@ -12,7 +12,7 @@ import gzip
 from cluster_cons7_shuf import comp
 
 
-def cluster(UCLUST, ID, datatype, WORK):
+def cluster(UCLUST, ID, datatype, WORK, MASK):
     C = " -cluster_smallmem "+WORK+"prefix/cat.consens_"
 
     if datatype in ['gbs','pairgbs','mergegbs']:
@@ -20,12 +20,21 @@ def cluster(UCLUST, ID, datatype, WORK):
         COV = ".90"
     else:
         P = " -leftjust "
-        COV = ".90"   
+        COV = ".90"
+    if 'vsearch' not in UCLUST:
+        Q = ""
+        T = " -threads 1"
+    else:
+        Q = " -qmask "+MASK
+        ## TODO: figure out optimized threads setting...
+        T = " -threads 6"
     U = " -userout "+WORK+"prefix/cat.u"
     cmd = UCLUST+\
         C+\
         P+\
         " -id "+ID+\
+        Q+\
+        T+\
         U+\
         " -userfields query+target+id+gaps+qstrand+qcov"+\
         " -maxaccepts 1"+\
@@ -33,8 +42,8 @@ def cluster(UCLUST, ID, datatype, WORK):
         " -fulldp"+\
         " -query_cov "+str(COV)+\
         " -notmatched "+WORK+"prefix/cat._tempU"
-        #" -hardmask"+\
     os.system(cmd)
+    #subprocess.call(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
 
 
 def flip(a):
@@ -137,7 +146,7 @@ def makeclust(ID, datatype, WORK):
     
 
 def main(UCLUST, ID, datatype,
-         gids, seed, WORK):
+         gids, seed, WORK, MASK):
     
     sys.stderr.write('\n\tstep 6: clustering across cons-samples at '+`ID`+' similarity \n')
 
@@ -184,7 +193,7 @@ def main(UCLUST, ID, datatype,
         print >>out, a[0]+'\n'+ss
     out.close()
 
-    cluster(UCLUST, ID, datatype, WORK)
+    cluster(UCLUST, ID, datatype, WORK, MASK)
     makeclust(ID, datatype, WORK)
 
 
