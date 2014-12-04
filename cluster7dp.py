@@ -202,7 +202,7 @@ def fullcluster(UCLUST, outfolder, handle, wclust, Parallel, datatype, fileno, M
     else:     ## rad, ddrad, ddradmerge
         P = " -leftjust "
         COV = " -query_cov .90"
-    if 'vsearch' in UCLUST:
+    if 'vsearch' not in UCLUST:
         Q = ""
     else:
         Q = " -qmask "+MASK
