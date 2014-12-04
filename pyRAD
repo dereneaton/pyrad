@@ -36,7 +36,7 @@ from potpour import Worker
 
 
 def main():
-    parser = OptionParser(prog="pyRAD", usage="%prog [options]", version="%prog 2.17.1")
+    parser = OptionParser(prog="pyRAD", usage="%prog [options]", version="%prog 2.18")
     parser.add_option('-p', action="store", type="string", dest="params",
                       help="input file for within sample filtering and clustering\n")
     parser.add_option('-s', action="store", dest="steps",
@@ -69,7 +69,7 @@ def main():
                          ' '*5+'---'*20+'\n\n')
         
         readin = [line.strip().split('##')[0].strip() for line in open(options.params).readlines()]
-        if "==== " not in str(readin[38]):
+        if "==** " not in str(readin[0]):
             print "\n\twarning: update params input file format to latest version\n"; sys.exit()
 
         WORK     = str(readin[1])
@@ -129,10 +129,14 @@ def main():
         except ValueError: minuniq = 0
         try: hierarch = int(readin[37])  
         except ValueError: hierarch = 0
+        try: MASK = int(readin[38])
+        except ValueError: MASK = 'dust'
+        if MASK == 1: MASK='dust'
+        else: MASK='none'
         ###############################
-        ## 38 is separator line
+        ## 39 is separator line
         ###############################
-        try: clustprefix = readin[39:]
+        try: clustprefix = readin[40:]
         except IndexError: clustprefix = ""
         clustprefix = [i for i in clustprefix if i]
 
@@ -300,8 +304,9 @@ def main():
 
         ### step 3  ####################
         if '3' in k:
-            cluster7dp.main(WORK, parallel, wclust, mindepth, uclust,
-                            subset, datatype, muscle, w1, w2, minuniq, remake=0)
+            cluster7dp.main(WORK, parallel, wclust, mindepth,
+                            uclust,subset, datatype, muscle,
+                            w1, w2, minuniq, MASK, remake=0)
                             
 
 
@@ -489,7 +494,7 @@ def main():
 
         if '8' in k:
             cluster7dp.main(WORK, parallel, wclust, mindepth, uclust,
-                            subset, datatype, muscle, w1, w2, minuniq, remake=1)
+                            subset, datatype, muscle, w1, w2, minuniq, MASK, remake=1)
                             
 
     if options.dtest:
