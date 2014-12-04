@@ -470,7 +470,7 @@ def splitter(handle):
         dd = d.split('\n')
         n = dd[0]
         s = "".join(dd[1:])
-        s1,s2 = s.split("xxxx")
+        s1 = s.split("xx")[0]
         ff.append(">"+n+'\n'+s1+"\n")
         cnts += 1
         if not cnts % 10000:

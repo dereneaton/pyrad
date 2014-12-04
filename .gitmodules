@@ -1,0 +1,3 @@
+[submodule "lib/vsearch"]
+	path = lib/vsearch
+	url = https://github.com/torognes/vsearch.git
