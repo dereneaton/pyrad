@@ -361,7 +361,7 @@ def main():
                     inlist = glob.glob(WORK+"clust"+wclust+"/"+subset+"*.consens*")
                 cluster_cons7_shuf.main(uclust, wclust, datatype, 
                                         outgroup, seed, gids, minhits, 
-                                        inlist, WORK, 0)
+                                        inlist, WORK, MASK, 0)
                 print "\n\tfinished clustering"
             else:
                 """ re-expand clustprefix cluster groups in case no -s """
@@ -434,7 +434,7 @@ def main():
                     work_queue.put([uclust, wclust, datatype, 
                                     outgroup, seed,
                                     gid, minhit, inlist,
-                                    WORK, 1 ])
+                                    WORK, MASK, 1 ])
                         
                 " execute first tier jobs "    
                 jobs = []
@@ -447,7 +447,7 @@ def main():
 
                 " cluster second tier "
                 tier2clust.main(uclust, wclust, datatype,
-                                gids, seed, WORK)
+                                gids, seed, WORK, MASK)
 
                 print "\n\tfinished clustering\n"
 
