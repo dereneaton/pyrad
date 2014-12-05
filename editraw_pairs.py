@@ -224,14 +224,16 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
                 if not badread:
                     if cutter:
                         if cutter > max(36,trimkeep):
-                            sout = ">"+n+"_"+str(keepcut)+"_trim1"+"\n"+s[:cutter]+"\n"+d[2]+d[3][:cutter]+"\n"
+                            sout = ">"+n+"_"+str(keepcut)+"_trim1"+"\n"+s[:cutter]+\
+                                   "\n"+d[2]+d[3][:cutter]+"\n"
                             writing_c.append(sout)
                             keepcut += 1
-                            sout = ">"+n+"_"+str(keepcut)+"_trim2"+"\n"+revcomp(s2[x:cutter+5])+"\n"+d[2]+d[3][x:cutter+5]+"\n"
+                            sout = ">"+n+"_"+str(keepcut)+"_trim2"+"\n"+revcomp(s2[x:cutter+5])+\
+                                   "\n"+d[2]+d[3][x:cutter+5]+"\n"
                             writing_c.append(sout)
                             keepcut += 1
                     else:
-                        sout = ">"+n+"_"+str(keep)+"_pair"+"\n"+s[:-1]+"xxxx"+revcomp(s2[x:])+"\n"
+                        sout = ">"+n+"_"+str(keep)+"_pair"+"\n"+s[:-1]+"nnnn"+revcomp(s2[x:])+"\n"
                         writing_r.append(sout)
                         keep += 1
 
@@ -342,7 +344,7 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
     trimmed = reads that had adapter trimmed but were kept
     passed = total kept reads
 
-    note: you can set minimum length of kept trimmed reads on line 35 the params file 
+    note: you can set minimum length of kept trimmed reads on line 31 the params file 
     kept trimmed (fragment) reads written to""" ,WORK+"mergedreads/\n"
     outstats.close()
 

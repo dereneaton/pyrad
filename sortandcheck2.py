@@ -16,8 +16,12 @@ def combinefiles(GLOB):
         FS = glob.glob(GLOB)
     else:
         FS = glob.glob(GLOB)
-    firsts = [i for i in FS if "_R1_" in i]
-    seconds = [ff.replace("_R1_","_R2_") for ff in firsts]
+    ## look for file names match
+    firsts = [i for i in FS if ".forward." in i]
+    seconds = [ff.replace(".forward.",".reverse.") for ff in firsts]    
+    if not firsts:
+        firsts = [i for i in FS if "_R1_" in i]
+        seconds = [ff.replace("_R1_","_R2_") for ff in firsts]
     if len(firsts) != len(seconds):
         raise Exception("different numbers of first and second read files.\
               Check that the names of files are correct")
@@ -274,7 +278,7 @@ def barmatch(C, Raws, CUT, datatype, num, maxmismatch, WORK, longB):
 def writefunc(GLOB,Parallel,Bcode,CUT,datatype,maxmismatch,WORK):
     "create barcode dictionary"
     codetable = open(Bcode, 'r')
-    codes = [line.strip().split("\t") for line in codetable.readlines()]
+    codes = [line.strip().split() for line in codetable.readlines()]
     C = {}
     for line in codes:
         if line[0]:

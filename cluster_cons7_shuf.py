@@ -47,7 +47,7 @@ def cmd_exists(cmd):
         stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
 
 
-def cluster(UCLUST, handle, ID, datatype,
+def cluster(vsearch, handle, ID, datatype,
             quiet, WORK, gid, MASK):
 
     if datatype == 'pairddrad':
@@ -76,13 +76,13 @@ def cluster(UCLUST, handle, ID, datatype,
     else:
         P = " -leftjust "
         COV = " -query_cov .90 "
-    if 'vsearch' not in UCLUST:
+    if 'vsearch' not in vsearch:
         Q = ""
         T = " -threads 1"
     else:
         Q = " -qmask "+MASK
         T = " -threads 6"
-    cmd = UCLUST+\
+    cmd = vsearch+\
         C+\
         P+\
         Q+\
@@ -212,12 +212,12 @@ def splitter(handle):
 
 
 
-def makecons(UCLUST, ID, datatype, 
+def makecons(vsearch, ID, datatype, 
              outg, seed, gid, minmatch, inlist,
              WORK, quiet, outhandle):
 
     " find usearch"
-    if not cmd_exists(UCLUST):
+    if not cmd_exists(vsearch):
         print "\tcannot find usearch (or vsearch), edit path in param file"
         sys.exit()
 
@@ -356,21 +356,21 @@ def makecons(UCLUST, ID, datatype,
     outhaplos.close()
 
 
-def main(UCLUST, ID, datatype, 
+def main(vsearch, ID, datatype, 
          outg, seed, gid, minmatch, inlist,
          WORK, MASK, quiet):
 
     outhandle = WORK+"clust"+ID+"/cat.haplos_"+gid
 
-    makecons(UCLUST,ID,datatype,
+    makecons(vsearch,ID,datatype,
              outg,seed,gid,minmatch,
              inlist,WORK,quiet,outhandle)
 
     if datatype == 'pairddrad':
         splithandle = splitter(outhandle)
-        cluster(UCLUST,splithandle,ID,datatype,quiet,WORK, gid, MASK)
+        cluster(vsearch,splithandle,ID,datatype,quiet,WORK, gid, MASK)
     else:
-        cluster(UCLUST,outhandle,ID,datatype,quiet,WORK, gid, MASK)
+        cluster(vsearch,outhandle,ID,datatype,quiet,WORK, gid, MASK)
 
     " remake clusters with .haplos, .u, and .temp files"
     makeclust(outhandle,datatype,gid,minmatch,WORK)

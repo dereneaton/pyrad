@@ -138,7 +138,10 @@ def make(WORK, outname, names, formats, seed):
 
         for i in range(len(Si.values()[0])):
             ref = Si[SF[0]][i]
-            print >>genoout, "".join(map(str,[alignable.unstruct(Si[j][i]).count(ref) for j in SF]))
+            SNProw = "".join(map(str,[alignable.unstruct(Si[j][i]).count(ref) for j in SF]))
+            ## if bi-allelic variable...
+            if len(set(SNProw)) > 1:
+                print >>genoout, SNProw 
 
         #mapout.close()
         genoout.close()

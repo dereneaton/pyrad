@@ -17,7 +17,7 @@ except ImportError:
     from ordereddict import OrderedDict
 #-----------
 import sortandcheck2
-import overlapcheck
+## import overlapcheck
 import editraw_rads, editraw_pairs, editraw_merges
 import H_err_dp
 import cluster7dp
@@ -33,10 +33,19 @@ import createfile
 import potpour
 from potpour import Worker
 
+## check for numpy and scipy
+try: import numpy
+except ImportError:
+    print "\n\tError: numpy is not installed/loaded"
+    sys.exit()
+try: import scipy.stats
+except ImportError:
+    print "\n\tError: scipy is not installed/loaded"
+    sys.exit()
 
 
 def main():
-    parser = OptionParser(prog="pyRAD", usage="%prog [options]", version="%prog 2.18")
+    parser = OptionParser(prog="pyRAD", usage="%prog [options]", version="%prog 3.0a")
     parser.add_option('-p', action="store", type="string", dest="params",
                       help="input file for within sample filtering and clustering\n")
     parser.add_option('-s', action="store", dest="steps",
@@ -75,72 +84,72 @@ def main():
         WORK     = str(readin[1])
         GLOB     = str(readin[2])
         Bcode    = str(readin[3])
-        uclust   = str(readin[4])
-        muscle   = str(readin[5])
-        CUT      = str(readin[6])  
-        parallel = int(readin[7])
-        mindepth = int(readin[8])
-        pN       = str(readin[9])    
-        wclust   = str(readin[10])   
-        datatype = str(readin[11])   
-        minsamp  = int(readin[12])
-        maxpoly  = str(readin[13])
-        outname  = str(readin[14])
+        CUT      = str(readin[4])  
+        parallel = int(readin[5])
+        mindepth = int(readin[6])
+        pN       = str(readin[7])    
+        wclust   = str(readin[8])   
+        datatype = str(readin[9])   
+        minsamp  = int(readin[10])
+        maxpoly  = str(readin[11])
+        outname  = str(readin[12])
         ###########################
-        ## 15 is separator line
+        ## 13 is separator line
         ###########################
-        subset   = str(readin[16])
-        outgroup = str(readin[17])
-        exclude  = str(readin[18])
-        Floc     = str(readin[19])
-        try: maxmismatch = int(readin[20])
+        subset   = str(readin[14])
+        outgroup = str(readin[15])
+        exclude  = str(readin[16])
+        Floc     = str(readin[17])
+        try: maxmismatch = int(readin[18])
         except (ValueError,IndexError): maxmismatch = 1
-        try: Q = int(readin[21])
+        try: Q = int(readin[19])
         except (ValueError,IndexError): Q = 33
-        try: strict     = int(readin[22])
+        try: strict     = int(readin[20])
         except (ValueError, IndexError): strict = 0
-        try: E,H      = str(readin[23]).strip().split(",")
+        try: E,H      = str(readin[21]).strip().split(",")
         except ValueError: E = ""; H = ""
-        try: maxN     = int(readin[24])
+        try: maxN     = int(readin[22])
         except ValueError: maxN = 5
-        try: maxH     = int(readin[25])
+        try: maxH     = int(readin[23])
         except ValueError: maxH = 5
-        try: haplos   = int(readin[26])
+        try: haplos   = int(readin[24])
         except ValueError: haplos = 2
-        maxSNP   = str(readin[27])
+        maxSNP   = str(readin[25])
         if maxSNP == "": maxSNP = "99"
-        max_inserts = str(readin[28])
+        max_inserts = str(readin[26])
         if max_inserts == "": max_inserts = "3"
-        try: seed     = int(readin[29])
+        try: seed     = int(readin[27])
         except ValueError: seed = 112233
-        try: overhang    = [int(i) for i in str(readin[30]).strip().split(',')]
+        try: overhang    = [int(i) for i in str(readin[28]).strip().split(',')]
         except (ValueError,IndexError): overhang = [0,0]
-        try: outform   = str(readin[31])
+        try: outform   = str(readin[29])
         except (ValueError,IndexError): outform = ""
-        try: lowcounts   = int(readin[32])
+        try: lowcounts   = int(readin[30])
         except (ValueError, IndexError): lowcounts = 0
-        mergepairs = str(readin[33])
-        if mergepairs in [0,""]: mergepairs = 0
-        try: trimkeep = int(readin[34])
+        ##mergepairs = str(readin[31])
+        ##if mergepairs in [0,""]: mergepairs = 0
+        try: trimkeep = int(readin[31])
         except ValueError: trimkeep = 0
-        try: maxstack = int(readin[35])  
+        try: maxstack = int(readin[32])  
         except ValueError: maxstack = "2SD"
-        try: minuniq = int(readin[36])  
+        try: minuniq = int(readin[33])  
         except ValueError: minuniq = 0
-        try: hierarch = int(readin[37])  
+        try: hierarch = int(readin[34])  
         except ValueError: hierarch = 0
-        try: MASK = int(readin[38])
+        try: MASK = int(readin[35])
         except ValueError: MASK = 'dust'
         if MASK == 1: MASK='dust'
         else: MASK='none'
+        try: threads = int(readin[36])
+        except ValueError: threads = 6
+        try: usearch = str(readin[37])
+        except (ValueError,IndexError): usearch = ""
         ###############################
-        ## 39 is separator line
+        ## 38 is separator line
         ###############################
-        try: clustprefix = readin[40:]
+        try: clustprefix = readin[39:]
         except IndexError: clustprefix = ""
         clustprefix = [i for i in clustprefix if i]
-
-
 
         """ expand ./ ~ and ../ designators in location names """
         def expander(namepath):
@@ -169,10 +178,36 @@ def main():
                 Floc = expander(Floc)
         if GLOB:   GLOB = expander(GLOB)
         if Bcode:  Bcode = expander(Bcode)
-        if uclust: uclust = expander(uclust)
-        if muscle: muscle = expander(muscle)
+        if usearch: usearch = expander(usearch)
         if options.dtest: options.dtest = expander(options.dtest)
 
+        """ find location of vsearch (or usearch) and muscle """
+        def cmd_exists(cmd):
+            return subprocess.call("type " + cmd, shell=True, 
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
+
+        " check platform: mac v linux "
+        if 'linux' in sys.platform:
+            vsearch = "vsearch-1.0.1-linux-x86_64"
+        else:
+            vsearch = "vsearch-1.0.1-mac-x86_64"
+
+        " find vsearch and muscle in user's lib/"
+        PYRADPATH = os.path.dirname(os.path.realpath(__file__))
+        vsearch = PYRADPATH+"/lib/"+vsearch
+        muscle = PYRADPATH+"/lib/muscle"
+
+        " unless using usearch"
+        if usearch:
+            vsearch = usearch
+            threads = 1
+    
+        if not cmd_exists(vsearch):
+            print "\tcannot find vsearch (or usearch), edit path in param file"
+            sys.exit()
+        if not cmd_exists(muscle):
+            print "\tcannot find muscle, edit path in input file"
+            sys.exit()
 
         """ expand clustprefix cluster groups """
         gids = []
@@ -290,7 +325,10 @@ def main():
                 " check for overlapping pairs if toggle "
                 if mergepairs:
                     sys.stderr.write("\n\tstep 2: checking for overlap of 1st & 2nd reads \n\t")
-                    overlapcheck.main(WORK,uclust,FQs,mergepairs,Q,parallel)
+                    if 'vsearch' in vsearch:
+                        print "\n\toverlap check currently only supported for usearch (line 37 of params file)"
+                        sys.exit()
+                    overlapcheck.main(WORK,vsearch,FQs,mergepairs,Q,parallel)
                     " select new non-merge input files for editraw func."
                     FQs = WORK+"fastq/"+subset+"*nomerge.gz"
                 editraw_pairs.main(parallel, WORK, FQs, CUT, 
@@ -305,9 +343,8 @@ def main():
         ### step 3  ####################
         if '3' in k:
             cluster7dp.main(WORK, parallel, wclust, mindepth,
-                            uclust,subset, datatype, muscle,
-                            w1, w2, minuniq, MASK, remake=0)
-                            
+                            subset, datatype, w1, w2, minuniq,
+                            MASK, muscle, vsearch, threads, remake=0)
 
 
         ### step 4  ####################
@@ -359,7 +396,7 @@ def main():
                     inlist = [WORK+"clust"+wclust+"/"+i+".consens*" for i in subset.strip().split(",")]
                 else:
                     inlist = glob.glob(WORK+"clust"+wclust+"/"+subset+"*.consens*")
-                cluster_cons7_shuf.main(uclust, wclust, datatype, 
+                cluster_cons7_shuf.main(vsearch, wclust, datatype, 
                                         outgroup, seed, gids, minhits, 
                                         inlist, WORK, MASK, 0)
                 print "\n\tfinished clustering"
@@ -431,7 +468,7 @@ def main():
                 " submit jobs "
                 for (gid,minhit) in zip(gids,minhits):
                     inlist = groups[gid]
-                    work_queue.put([uclust, wclust, datatype, 
+                    work_queue.put([vsearch, wclust, datatype, 
                                     outgroup, seed,
                                     gid, minhit, inlist,
                                     WORK, MASK, 1 ])
@@ -446,7 +483,7 @@ def main():
                     j.join()
 
                 " cluster second tier "
-                tier2clust.main(uclust, wclust, datatype,
+                tier2clust.main(vsearch, wclust, datatype,
                                 gids, seed, WORK, MASK)
 
                 print "\n\tfinished clustering\n"
@@ -493,7 +530,7 @@ def main():
                            mindepth, taxadict, minhits, seed)
 
         if '8' in k:
-            cluster7dp.main(WORK, parallel, wclust, mindepth, uclust,
+            cluster7dp.main(WORK, parallel, wclust, mindepth, vsearch,
                             subset, datatype, muscle, w1, w2, minuniq, MASK, remake=1)
                             
 
