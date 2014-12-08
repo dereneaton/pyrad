@@ -11,19 +11,9 @@ from potpour import Worker
 from sortandcheck2 import unambig
 
 
-# def readtech(name):
-#     """ determines illumina technology from read names
-#     need to add more options for other types... """
-#     if "#" in name:
-#         offset = 64
-#     else:
-#         offset = 33
-#     return offset
-
-
 def revcomp(s):
     ss = s[::-1].strip().replace("A","t").replace("T","a").\
-         replace("C","g").replace("G","c").upper()
+         replace("C","g").replace("G","c").replace("n","Z").upper().replace("Z","n")
     return ss
 
 
@@ -124,14 +114,23 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
     " create iterators for R1 and R2 files "
     if ".gz" in infile:
         f1 = gzip.open(infile, 'rb')
-        f2 = gzip.open(infile.replace("_R1.","_R2."), 'rb')
+        if ".forward." in infile:
+            f2 = gzip.open(infile.replace(".forward.",".reverse."), 'r')
+        else:
+            f2 = gzip.open(infile.replace("_R1.","_R2."), 'r')
     else:
         f1 = open(infile,'r')
-        f2 = open(infile.replace("_R1.","_R2."), 'r')
+        if ".forward." in infile:
+            f2 = open(infile.replace(".forward.",".reverse."), 'r')
+        else:
+            f2 = open(infile.replace("_R1.","_R2."), 'r')
     n = str(infile.split('/')[-1])
     while n.split(".")[-1] in ["fastq","fastQ","gz","fq","FastQ","nomerge"]:
         n = n.replace('.'+n.split(".")[-1], "")
-    n = n.replace("_R1","")
+    if '.forward' in n:
+        n = n.split(".unassembled")[0]
+    else:
+        n = n.replace("_R1","")
 
     k1 = itertools.izip(*[iter(f1)]*4)
     k2 = itertools.izip(*[iter(f2)]*4)
@@ -166,9 +165,6 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
                     seq[base] = unambar(CUT1)[0][base]
                 else:
                     seq[base] = CUT1[base]
-                #try: seq[base] = SS[base]
-                #except IndexError:
-                #    None
 
         s = "".join(seq)
         wheretocut1 = None
@@ -179,17 +175,22 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
         if strict:
             wheretocut1 = Afilter(CUT2,s,strict,1)
 
-        if s.count("N") <= pN:             ## max allowed Ns
+        if s.count("N") <= pN:              ## max allowed Ns
             if len(s) >= max(36,trimkeep):  ## if trimmed read1 length atleast t
 
                 " first read is (maybe) good, now filter second reads "
                 SS = dd[1].strip()
                 ph = map(ord,dd[3].strip())
+                " if PEAR filtered then seqs are reversed "
+                if '.forward' in infile:
+                    SS = revcomp(SS)
+                    ph = ph[::-1]
+                
                 offset = int(Q)
                 phred = map(lambda x:x-offset,ph)
                 seq = ["N"]*len(phred)
                 for base in range(len(phred)):
-                    if base > len(CUT2):              ## don't quality check cut site
+                    if base > len(CUT2):               ## don't quality check cut site
                         if phred[base] >= 20:          ## quality threshold
                             try: seq[base] = SS[base]
                             except IndexError: None
@@ -278,10 +279,17 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
     " load up work queue "
     submitted = 0
     work_queue = multiprocessing.Queue()
+
+    " do not select merged or discarded reads if PEAR was used on data"
+    FQs = glob.glob(FQs)
+    fqs = [i for i in FQs if not any([j in i for j in ["discarded",".assembled."]])]
     
-    if len(glob.glob(FQs)) > 1:
-        FS = [f for f in glob.glob(FQs)]
-        FS = [i for i in FS if "_R1" in i]  
+    if len(fqs) > 1:
+        " subselect only the first reads "
+        if any([".unassembled.forward." in i for i in fqs]):
+            FS = [i for i in fqs if '.forward.' in i]
+        else:
+            FS = [i for i in fqs if '_R1.' in i]
         
         " order files by size "
         for i in range(len(FS)):
@@ -295,26 +303,17 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
             n = handle.split('/')[-1]
             while n.split(".")[-1] in ["fastq","fastQ","gz","fq","FastQ","nomerge"]:
                 n = n.replace('.'+n.split(".")[-1], "")
-            n = "_".join(n.split('_R')[:-1])
+            if '.forward.' in n:
+                n = n.split(".unassembled")[0]
+            else:
+                "_".join(n.split('_R')[:-1])
             if WORK+"edits/"+n+".edit" not in glob.glob(WORK+"edits/*"):
-                if os.stat(handle).st_size > 0:   ## exclude empty files
+                if os.stat(handle).st_size > 0:     ## exclude empty files
                     args = [WORK, handle, CUT, float(pN), trimkeep, strict, Q, datatype]
                     work_queue.put(args)
                     submitted += 1
             else:
                 print "\t"+n+'.edit'+" already in edits/"
-
-    elif len(glob.glob(FQs)) == 1:
-        "submit single job to queue "
-        n = handle.split("/")[-1]
-        while n.split(".")[-1] in ["fastq","fastQ","gz","fq","FastQ","nomerge"]:
-            n = n.replace('.'+n.split(".")[-1], "")
-        n = "_".join(n.split('_R')[:-1])
-        if WORK+"edits/"+n+".edit" not in glob.glob(WORK+"edits/*"):
-            if os.stat(handle).st_size > 0:   ## exclude empty files
-                args = [WORK, handle, CUT, float(pN), trimkeep, strict, Q]
-                work_queue.put(args)
-                submitted += 1
     else:
         print "no de-multiplexed files found."
 
@@ -344,10 +343,7 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
     trimmed = reads that had adapter trimmed but were kept
     passed = total kept reads
 
-    note: you can set minimum length of kept trimmed reads on line 31 the params file 
+    note: you can set minimum length of kept trimmed reads on line 32 the params file 
     kept trimmed (fragment) reads written to""" ,WORK+"mergedreads/\n"
     outstats.close()
 
-    #" zip files to save size "
-    #for ff in glob.glob(WORK+"edits/*"):
-    #    os.system("gzip "+ff)
