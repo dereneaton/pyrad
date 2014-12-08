@@ -16,17 +16,19 @@ def make(WORK, outname, names, formats, seed):
     finalfile = open(WORK+"outfiles/"+outname+".loci").read()
     longname = max(map(len,names))
 
-    " output .snps .snp and .phy files "
-    F = {}  ## taxon dict
-    S = {}  ## snp dict
-    Si = {} ## unlinked snp dict
+    " output .snps and .unlinked_snps"
+    S = {}      ## snp dict
+    Si = {}     ## unlinked snp dict
     for name in list(names):
-        F[name] = []
         S[name] = []
         Si[name] = []
 
+    " record bi-allelic snps"
+    bis = 0
+
     " for each locus select out the SNPs"
-    for loc in [i for i in finalfile.strip().split("|\n")[:]]:
+    for loc in finalfile.strip().split("|\n"):
+        pis = ""
         ns = []
         ss = []
         cov = {}  ## record coverage for each SNP
@@ -38,9 +40,8 @@ def make(WORK, outname, names, formats, seed):
                 pis = [i[0] for i in enumerate(line) if i[1] in list('*-')]
                 
         " assign snps to S, and record coverage for usnps"
-        for tax in F:
+        for tax in S:
             if tax in ns:
-                F[tax].append(ss[ns.index(tax)])
                 if pis:
                     for snpsite in pis:
                         snpsite -= (longname+5)
@@ -49,33 +50,51 @@ def make(WORK, outname, names, formats, seed):
                             cov[snpsite] = 1
                         else:
                             cov[snpsite] += 1
+                        "downweight selection of gap sites "
                         if ss[ns.index(tax)][snpsite] != '-':
-                            cov[snpsite] += 1
+                           cov[snpsite] += 1
             else:
-                F[tax].append("N"*len(ss[0]))
                 if pis:
                     for snpsite in pis:
                         S[tax].append("N")
                     Si[tax].append("N")
+
         " randomly select among snps w/ greatest coverage for unlinked snp "
         maxlist = []
         for j,k in cov.items():
             if k == max(cov.values()):
                 maxlist.append(j)
-        if maxlist:
-            rando = pis[np.random.randint(len(pis))]
-            rando -= (longname+5)
-        for tax in F:
+
+        " Is bi-allelic ? "
+        bisnps = []
+        for i in maxlist:
+            if len(set([ss[ns.index(tax)][i] for tax in S])) < 3:
+                bisnps.append(i)
+
+        " if none are bi-allelic "
+        if not bisnps:
+            bis += 1
+            
+
+        #rando = pis[np.random.randint(len(pis))]
+        #rando -= (longname+5)
+        if bisnps:
+            rando = bisnps[np.random.randint(len(bisnps))]
+        else:
+            rando = maxlist[np.random.randint(len(maxlist))]
+        for tax in S:
             if tax in ns:
                 if pis:
                     Si[tax].append(ss[ns.index(tax)][rando])
             if pis:
+                " add spacer between loci "                
                 S[tax].append(" ")
             else:
+                " invariable locus "
                 S[tax].append("_ ")
 
     " names "
-    SF = list(F.keys())
+    SF = list(S.keys())
     SF.sort()
 
     " print out .SNP file "
@@ -96,8 +115,12 @@ def make(WORK, outname, names, formats, seed):
         print >>snpout, i+(" "*(longname-len(i)+3))+"".join(Si[i])
     snpout.close()
 
-    if 'k' in formats:
+    statsout  = open(WORK+"stats/"+outname+".stats",'a')
+    print >>statsout, "sampled unlinked SNPs=",len(Si.values()[0])
+    print >>statsout, "sampled bi-allelic SNPs=",len(Si.values()[0])-bis
+    statsout.close()
 
+    if 'k' in formats:
         "print out .str (structure) file "
         structout = open(WORK+'outfiles/'+outname+".str", 'w')
         
@@ -110,60 +133,21 @@ def make(WORK, outname, names, formats, seed):
 
         for line in SF:
             print >>structout, line+(" "*(longname-len(line)+3))+\
-                        "\t"*6+"\t".join([B[alignable.unstruct(j)[0]] for j in Si[line]])
+                     "\t"*6+"\t".join([B[alignable.unstruct(j)[0]] for j in Si[line]])
             print >>structout, line+(" "*(longname-len(line)+3))+\
                      "\t"*6+"\t".join([B[alignable.unstruct(j)[1]] for j in Si[line]])
-
         structout.close()
+
 
     if 'g' in formats:
         "print out .geno file "
         genoout = open(WORK+'outfiles/'+outname+".geno", 'w')
-        #mapout = open(WORK+'outfiles/'+outname+".map", 'w')        
-
-        ## print headers
-        #print >>genoout, "Marker_ID\tChr_No\tChr_Pos\tdbSNP_rs\t"+"\t".join(SF)
-        #print >>genoout, "Sample_Type\t#\t#\t#\t"+"\t".join([str(0) for i in range(len(SF))])
-
-        ## print data
-        #for line in SF:
-        #    print >>genoout, line+(" "*(longname-len(line)+3))+"-\t-\t-\t"+\
-        #          "\t".join(["/".join(alignable.unstruct(j)) for j in np.array(Si).T[line]])
-        #k = 1000
-        #for i in range(len(Si.values()[0])):
-            #print >>genoout, "SNP_"+str(i)+"\t1\t"+str(k)+"\tSNP_"+str(i)+"\t"+\
-            #      "\t".join(["/".join(alignable.unstruct(Si[j][i])) for j in SF])
-            #print >>mapout, "1\tSNP_"+str(i)+"\t0\t"+str(k)
-            #k += 1000
-
         for i in range(len(Si.values()[0])):
             ref = Si[SF[0]][i]
             SNProw = "".join(map(str,[alignable.unstruct(Si[j][i]).count(ref) for j in SF]))
-            ## if bi-allelic variable...
             if len(set(SNProw)) > 1:
                 print >>genoout, SNProw 
-
-        #mapout.close()
         genoout.close()
-        
-        
-        # " array of SNP data "
-        # N = np.array([list(Si[i]) for i in SF])
-
-        # " column of names "
-        # namescol = list(chain( * [[i+(" "*(longname-len(i)+3)),
-        #                            i+(" "*(longname-len(i)+3))] for i in SF] ))
-        # " add blank columns "
-        # empty = np.array(["" for i in xrange(len(SF)*2)])
-        # OUT = np.array([namescol,empty,empty,empty,empty,empty,empty])
-        # for col in xrange(len(N[0])):
-        #     l = N[:,col]
-        #     h = [alignable.unstruct(j) for j in l]
-        #     h = list(chain(*h))
-        #     bases = list("ATGC")
-        #     final = [bases.index(i) if i not in list("-N") else '-9' for i in h]
-        #     OUT = np.vstack([OUT, np.array(final)])
-        # np.savetxt(WORK+'outfiles/'+outname+".str", OUT.transpose(), fmt="%s", delimiter="\t")
 
 
 if __name__ == "__main__":
