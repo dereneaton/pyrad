@@ -9,6 +9,7 @@ import subprocess
 import operator
 import gzip
 import re
+#import threading
 from potpour import Worker
 
 
@@ -237,8 +238,6 @@ def stats(outfolder, handle, mindepth, multihits):
             d += int(a.split(";")[1].replace("size=",""))
         else:
             depth.append(d)
-            #keep = [i for i in depth if i>=mindepth]
-            #print d, numpy.mean(depth), numpy.mean(keep), len(depth), len(keep)
             d = 0
     infile.close()
     keep = [i for i in depth if i>=mindepth]
@@ -261,7 +260,7 @@ def stats(outfolder, handle, mindepth, multihits):
     hist = [float(i)/sum(ohist) for i in ohist]
     hist = [int(round(i*30)) for i in hist]
 
-    sys.stderr.write("\tsample "+handle.split("/")[-1].split(".")[0]+" finished, "+str(len(depth))+"loci\n")
+    sys.stderr.write("\tsample "+handle.split("/")[-1].split(".")[0]+" finished, "+str(len(depth))+" loci\n")
     del depth,keep
     return out,edges,hist,ohist
 
@@ -308,7 +307,6 @@ def alignwrapPAIR(infile,mindepth,muscle,w2):
     while 1:
         try: first = k.next()
         except StopIteration: break
-        cnts += 1
         itera = [first[0],first[1]]
         names = []   
         seqs = []
@@ -335,7 +333,6 @@ def alignwrapPAIR(infile,mindepth,muscle,w2):
                 D1[nn[i]] = ss[i]
             " reorder keys by nameiter order "
             keys = D1.keys()
-            #keys.sort(key=lambda x:int(x.split("_")[-1]),reverse=True)
             keys.sort(key=lambda x:int(x.split(";")[1].replace("size=","")), reverse=True)
 
             " align second reads "
@@ -359,12 +356,13 @@ def alignwrapPAIR(infile,mindepth,muscle,w2):
         else:
             STACK.append("_".join(names[0].split("_")[:-1])+'\n'+seqs[0])
 
+        cnts += 1
         if STACK:
             OUT.append("\n".join(STACK))
         if BADPAIR:
             OUTP.append("\n".join(BADPAIR))
 
-        if not cnts % 1000:
+        if not cnts % 500:
             if OUT:
                 outfile = gzip.open(infile.replace(".clust",".clustS"),'a')
                 outfile.write("\n//\n//\n".join(OUT)+"\n//\n//\n")
@@ -384,6 +382,7 @@ def alignwrapPAIR(infile,mindepth,muscle,w2):
 
 
     
+    
 def alignwrap(infile,mindepth,muscle,w1):
     """ splits clusters and feeds them into alignfast function """
     f = gzip.open(infile)
@@ -393,7 +392,6 @@ def alignwrap(infile,mindepth,muscle,w1):
     while 1:
         try: first = k.next()
         except StopIteration: break
-        cnts += 1
         itera = [first[0],first[1]]
         STACK = []
         names = []   
@@ -415,7 +413,7 @@ def alignwrap(infile,mindepth,muscle,w1):
                 just relative to the seed sequence """
                 if ss[i].rstrip("-").lstrip("-").count("-") <= w1:
                     D1[nn[i]] = ss[i]
-                #if 'gbs' in datatype: 
+
                 " do not allow seqeuence to the left of the seed (may include adapter/barcodes)"
                 if not nn[i].split(";")[-1]:
                     leftlimit = min([ss[i].index(j) for j in ss[i] if j!="-"])
@@ -432,7 +430,8 @@ def alignwrap(infile,mindepth,muscle,w1):
         if STACK:
             OUT.append("\n".join(STACK))
 
-        if not cnts % 1000:
+        cnts += 1
+        if not cnts % 500:
             if OUT:
                 outfile = gzip.open(infile.replace(".clust",".clustS"),'a')
                 outfile.write("\n//\n//\n".join(OUT)+"\n//\n//\n")
@@ -520,13 +519,45 @@ def final(vsearch, outfolder, handle, wclust, mindepth,
                 splitter(handle)
 
         " cluster the reads "
-        #fullcluster(vsearch, outfolder, handle, wclust, parallel, datatype, fileno, MASK, threads)
+        fullcluster(vsearch, outfolder, handle, wclust, parallel, datatype, fileno, MASK, threads)
 
     " build cluster files from .u & .temp files "
     makederepclust(outfolder, handle, w1, datatype)
 
-    ## if using usearch align data right after clustering using the same processor
-    ## but if using vsearch then align data later ...
+    # " thread each align job x2 to reach ~100% "
+    # " split file in half"
+    # f = gzip.open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz"), 'rb').read().strip().split("//\n")
+    # chunk1 = f/2
+    # ff1 = gzip.open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz.1"))
+    # ff1.write("//\n\n".join(f[:chunk1])+"//\n\n")
+    # ff1.close()
+    # ff2 = gzip.open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz.2"))
+    # ff2.write("//\n\n".join(f[chunk1:])+"//\n\n")
+    # ff2.close()
+
+    # threads = []
+    # for ff in range(1,3):
+    #     if 'pair' in datatype:
+    #         margs = (outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz."+str(ff)),
+    #                               mindepth, muscle, w2,)
+    #         t = threading.Thread(target=alignwrapPAIR, args=margs)
+    #     else:
+    #         margs = (outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz."+str(ff)),
+    #                  mindepth, muscle, w1,)
+    #         t = threading.Thread(target=alignwrap, args=margs)
+    #     threads.append(t)
+    #     t.start()
+        
+    # " combine split alignment files"
+    # ff1 = outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz.1")
+    # ff2 = outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz.2")
+    # ff3 = outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz")
+                                                      
+    # cmd = "/bin/cat "+ff1+" "+ff2+" > "+ff3
+    # os.system(cmd)
+    # os.remove(ff1)
+    # os.remove(ff2)    
+
     " align clusters w/ muscle "
     if 'pair' in datatype:
         multihits = alignwrapPAIR(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz"),
@@ -624,11 +655,16 @@ def main(WORK, parallel, wclust, mindepth,
     fileno = 1
 
     if not remake:
+        if threads == 0:
+            nthreads = 'all'
+        else:
+            nthreads =threads
+        np = min(parallel,len(FS))
         sys.stderr.write("\n\tstep 3: within-sample clustering of "+\
                          `len(FS)`+" samples at \n\t        "+`wclust`+\
-                         " similarity. Running "+`parallel`+" parallel jobs\n\t"+\
-                         " \twith "+`threads`+" threads per job. Max cores used ="+`parallel*threads`+".\n\t"+\
-                         " \tIf needed, adjust to avoid CPU and MEM limits\n\n")
+                         " similarity. Running "+`np`+" parallel jobs\n\t"+\
+                         " \twith up to"+`nthreads`+" threads per job. "+\
+                         " If needed, \n\t\tadjust to avoid CPU and MEM limits\n\n")
     else:
         sys.stderr.write("\n\tstep 3: rebuilding clusters from unfinished step 3 files\n")
 
