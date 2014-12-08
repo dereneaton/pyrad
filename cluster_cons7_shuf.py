@@ -203,7 +203,8 @@ def splitter(handle):
     for d in dp:
         n,s = d
         ## checking fix to pairddrad splitting problem...
-        s1 = s.split("XX")[0]
+        ## backwards compatible with pyrad v2
+        s1 = s.replace("X","x").replace("x","n").split("nn")[0]
         ff.append(n+s1+"\n")
         cnts += 1
     orderfirsts.write("".join(ff))
