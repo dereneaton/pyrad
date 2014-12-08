@@ -172,13 +172,11 @@ def consensus(f, minsamp, CUT1, CUT2, datatype):
             if any([i < rightjust for i in rights]):
                 leftjust = max(lefts)
 
-            #print "".join(list(S[0]))
             for s in range(len(S)):
                 if rightjust:
                     S[s] = S[s][leftjust:rightjust+1]
                 if leftjust:
                     S[s] = S[s][leftjust:rightjust+1] ## +1?
-            #print "".join(list(S[0]))
 
         " trim off restriction sites from end/s "
         if datatype in ['mergegbs','mergeddrad','pairddrad','pairgbs','gbs']:
