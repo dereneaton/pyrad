@@ -21,6 +21,7 @@ import loci2treemix
 import loci2SNP
 import loci2mig
 
+
 def unstruct(amb):
     amb = amb.upper()
     " returns bases from ambiguity code"
@@ -117,8 +118,8 @@ def trimmer(overhang, nn, sss, datatype, minspecies):
     " only trim if more than three samples "
     if minspecies > 3:
         if 'pair' in datatype:
-            firsts = [i.split("X")[0] for i in sss]
-            seconds = [i.split("X")[-1] for i in sss]
+            firsts = [i.split("n")[0] for i in sss]
+            seconds = [i.split("n")[-1] for i in sss]
 
             "treat each read separately, or do the total read?"
             if len(overhang) == 4:
@@ -174,7 +175,7 @@ def trimmer(overhang, nn, sss, datatype, minspecies):
                 SM2 = max([i for i in xrange(len(seconds[0])) if [j>=i for j in rightlimit].count(True) == len(nn)])+1
 
             "put pair back together"
-            sss=[i+"XXXX"+j for i,j in zip(firsts,seconds)]
+            sss=[i+"nnnn"+j for i,j in zip(firsts,seconds)]
                         
         else:
             leftlimit = [FF(i,'min') for i in sss]
@@ -242,7 +243,8 @@ def alignFUNC(infile, minspecies, ingroup,
                 cnames.append("_".join(d[0].split(">")[1].split("_")[:-2]))
                 names.append("_".join(d[0].split(">")[1].split("_")[:-2])+"_"+str(nameiter))
                 onames.append(d[0].strip().split("_")[-1])
-                seqs.append([d[1].strip()])
+                #seqs.append([d[1].strip()])
+                seqs.append(d[1].strip())
             d = k.next()
             nameiter += 1
 
@@ -256,9 +258,11 @@ def alignFUNC(infile, minspecies, ingroup,
             g4 += 1
 
             "align read1 separate from read2"
-            if 'pair' in datatype:  
-                firsts = [[i[0].split("XXXX")[0]] for i in seqs]
-                seconds = [[i[0].split("XXXX")[1]] for i in seqs]
+            if 'pair' in datatype:
+                " compatibility from pyrad 2 -> 3 "
+                SEQs = [i.replace("X",'n') for i in seqs]
+                firsts  = [[i.split("nnnn")[0]] for i in SEQs]
+                seconds = [[i.split("nnnn")[-1]] for i in SEQs]
 
                 "align first reads"
                 stringnames = alignfast(WORK,pronum,names,firsts,muscle)
@@ -277,7 +281,7 @@ def alignFUNC(infile, minspecies, ingroup,
                 for i in range(len(nn)):
                     D2[nn[i]] = ss2[i]
                 nn = keys 
-                sss = [D1[key]+"XXXX"+D2[key] for key in keys]
+                sss = [D1[key]+"nnnn"+D2[key] for key in keys]
             else:
                 "align reads"
                 stringnames = alignfast(WORK,pronum,names,seqs,muscle)
@@ -286,7 +290,6 @@ def alignFUNC(infile, minspecies, ingroup,
                     print stringnames
                 nn, sss = sortalign(stringnames)
                 
-
             " now strip off cut sites "
             if "merge" in datatype:
                 sss = [i[len(CUT1):-len(CUT2)] for i in sss]
@@ -317,8 +320,8 @@ def alignFUNC(infile, minspecies, ingroup,
 
             " put in split for pairs "
             for i in range(len(sss[0])):
-                if sss[0][i] == "X":
-                    snpsite[i] = 'X'
+                if sss[0][i] == "n":
+                    snpsite[i] = 'n'
 
             " record a string for variable sites in snpsite"
             for site in bases:
@@ -336,12 +339,6 @@ def alignFUNC(infile, minspecies, ingroup,
                         snpsite[basenumber] = '-'
                 basenumber += 1
 
-            " only include real sites in snpsite string "
-            #rms = [any([j not in ['N','-'] for j in site]) for site in bases]
-            #for i in range(len(sss)):
-            #    sss[i] = "".join([sss[i][j] for j in range(len(sss[i])) if rms[j]])
-            #snpsite = [snpsite[i] for i in range(len(snpsite)) if rms[i]]
-
             " get trimmed edges "
             FM1,FM2,SM1,SM2 = trimmer(overhang,nn,sss,datatype, minspecies)
 
@@ -353,8 +350,7 @@ def alignFUNC(infile, minspecies, ingroup,
 
                 " SNP filter "
                 if 'pair' in datatype:
-                    #spacer = sss[0].index("X")
-                    snp1, snp2 = "".join(snpsite).split("XXXX")
+                    snp1, snp2 = "".join(snpsite).split("nnnn")
                     snp1 = snp1.replace("*","-")
                     if snp1.count("-") > int(s1):
                         S = "%S1"
@@ -369,7 +365,7 @@ def alignFUNC(infile, minspecies, ingroup,
                 " indel filter"
                 if not S:
                     if "pair" in datatype:
-                        spacer = sss[0].index("X")
+                        spacer = sss[0].index("n")
                         if any([y[FM1:spacer].count("-") > int(a1) for x,y in zz]):
                             I = "%I1"
                         elif any([y[spacer:SM2].count("-") > int(a2) for x,y in zz]):
@@ -381,12 +377,12 @@ def alignFUNC(infile, minspecies, ingroup,
             if len(D+P+S+I) == 0:
                 " write aligned loci to temp files for later concatenation into the .loci file"
                 if 'pair' in datatype:
-                    snp1,snp2 = "".join(snpsite).split("XXXX")
+                    snp1,snp2 = "".join(snpsite).split("nnnn")
                     for x,y in zz:
-                        first,second = y.split("XXXX")
+                        first,second = y.split("nnnn")
                         space = ((longname+5)-len(x))
                         print >>aout, x+" "*space + first[FM1:SM1].upper()+\
-                              'xxxx'+second[FM2:SM2].upper()
+                              'nnnn'+second[FM2:SM2].upper()
                     print >>aout, '//'+' '*(longname+3)+snp1[FM1:SM1]+"    "+snp2[FM2:SM2]+"|"+notes
                 else:
                     for x,y in zz:
@@ -397,11 +393,11 @@ def alignFUNC(infile, minspecies, ingroup,
             else:
                 " write to exclude file "
                 if 'pair' in datatype:
-                    snp1,snp2 = "".join(snpsite).split("XXXX")
+                    snp1,snp2 = "".join(snpsite).split("nnnn")
                     for x,y in zz:
-                        first,second = y.split("XXXX")
+                        first,second = y.split("nnnn")
                         space = ((longname+5)-len(x))
-                        print >>nout, x+" "*space+first[FM1:SM1].upper()+'xxxx'+second[FM2:SM2].upper()
+                        print >>nout, x+" "*space+first[FM1:SM1].upper()+'nnnn'+second[FM2:SM2].upper()
                     print >>nout, '//'+D+P+S+I+' '*(longname+3-len(D+P+S+I))+snp1[FM1:SM1]+\
                           "    "+snp2[FM2:SM2]+"|"+notes
 
@@ -522,13 +518,16 @@ def DoStats(ingroup, outgroups, outname,
     print >>statsout, "## number of loci recovered in final data set for each taxon."
     names = list(ingroup)+outgroups
     names.sort()
+    
     print >>statsout, '\t'.join(['taxon','nloci'])
     for name in names:
         print >>statsout, name+" "*(longname-len(name))+"\t"+str(finalfile.count(">"+name+" "))
+        
     print >>statsout, '\n'
     print >>statsout, "## nloci = number of loci with data for exactly ntaxa"
     print >>statsout, "## ntotal = number of loci for which at least ntaxa have data"
     print >>statsout, '\t'.join(['ntaxa','nloci','saved','ntotal'])
+
     coverage = [i.count(">") for i in finalfile.strip().split("|\n")[:]]
     if not coverage:
         print "\twarning: no loci meet 'min_sample' setting (line 11)\n\tno results written"
@@ -548,17 +547,20 @@ def DoStats(ingroup, outgroups, outname,
     print >>statsout, "## var = number of loci containing n variable sites."
     print >>statsout, "## pis = number of loci containing n parsimony informative var sites."
     print >>statsout, '\t'.join(['n','var','PIS'])
-    ## pis = [finalfile.count("*")]   # [i.count("*") for i in finalfile] ## .strip().split("|\n")[:-1]]
+
     pis = [line.count("*") for line in finalfile.split("\n") if "|" in line]
     snps = [line.count("-") for line in finalfile.split("\n") if "|" in line]
-    print >>statsout, str(0)+"\t"+str(snps.count(0))+"\t"+str(pis.count(0))
+    zero = 0
+    for line in finalfile.split("\n"):
+        if "|" in line:
+            if line.count("*")+line.count("-")==0:
+                zero += 1
+    print >>statsout, str(0)+"\t"+str(zero)+"\t"+str(pis.count(0))
     for i in range(1,max(max(set(snps))+1,max(set(pis))+1)):
         print >>statsout, str(i)+"\t"+str(snps.count(i)+pis.count(i))+"\t"+str(pis.count(i))
-    totalvar = sum(snps)+sum(pis)
+    totalvar = sum(snps)+sum(pis)+1
     print >>statsout, "total var=",totalvar
     print >>statsout, "total pis=",sum(pis)
-
-
 
 
 def makehaplos(WORK, outname, longname):
@@ -634,9 +636,6 @@ def main(outgroup, minspecies, outname,
         else:
             s1 = s2 = maxSNP
 
-    " set singletons to 0 "
-    singletons = 0
-    
     " find subset names "
     subset = set([i for i in names if subset in i])
 
@@ -680,7 +679,7 @@ def main(outgroup, minspecies, outname,
 
     " check if output files already exist with this outname prefix "
     if os.path.exists(WORK+"outfiles/"+outname+".loci"):
-        print "\n\tData set "+outname+".loci already exists"
+        print "\n\tWarning: data set "+outname+".loci already exists"
         print "\t  Skipping re-alignment. Creating extra data formats from the existing file"
         print "\t  To create a new .loci file and alignment move/delete "+outname+".loci or change"
         print "\t  the outname prefix in the params file\n"
@@ -698,6 +697,8 @@ def main(outgroup, minspecies, outname,
 
 
     " make other formatted files "
+    if "*" in outform:
+        outform = ",".join(list("pnasvutmkg"))
     formats = outform.split(",")
 
     " make phy, nex, SNP, uSNP, structure"
@@ -708,19 +709,23 @@ def main(outgroup, minspecies, outname,
             print "\twriting phylip file"
         loci2phynex.make(WORK,outname,names,longname, formats)
 
-    if any([i in formats for i in ['u','s','k','t']]):
+    if any([i in formats for i in ['u','s','k','t','g']]):
         print "\twriting unlinked SNPs file"
         if 's' in formats:
             print "\t  + writing full SNPs file"
         if 'k' in formats:
             print "\t  + writing STRUCTURE file"            
+        if 'g' in formats:
+            print "\t  + writing geno file"            
         loci2SNP.make(WORK, outname, names, formats, seed)
 
     " make treemix output "
     if "t" in formats:
-        print "\t  + writing treemix file"
         if gids:
+            print "\t  + writing treemix file"
             loci2treemix.make(WORK, outname, taxadict, minhits)
+        else:
+            print "\t  ** must enter group/clade assignments for treemix output "
 
     " make vcf "
     if 'v' in formats:
@@ -734,5 +739,8 @@ def main(outgroup, minspecies, outname,
     
     " make migrate output "
     if 'm' in formats:
-        print "\twriting migrate-n file"
-        loci2mig.make(WORK, outname, taxadict, minhits, seed)
+        if gids:
+            print "\twriting migrate-n file"
+            loci2mig.make(WORK, outname, taxadict, minhits, seed)
+        else:
+            print "\t  ** must enter group/clade assignments for migrate-n output "
