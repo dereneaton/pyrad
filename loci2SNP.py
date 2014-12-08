@@ -71,20 +71,18 @@ def make(WORK, outname, names, formats, seed):
             if len(set([ss[ns.index(tax)][i] for tax in S])) < 3:
                 bisnps.append(i)
 
-        " if none are bi-allelic "
-        if not bisnps:
-            bis += 1
-            
-
         #rando = pis[np.random.randint(len(pis))]
         #rando -= (longname+5)
         if bisnps:
             rando = bisnps[np.random.randint(len(bisnps))]
-        else:
+        elif maxlist:
             rando = maxlist[np.random.randint(len(maxlist))]
         for tax in S:
             if tax in ns:
                 if pis:
+                    " if none are bi-allelic "
+                    if not bisnps:
+                        bis += 1
                     Si[tax].append(ss[ns.index(tax)][rando])
             if pis:
                 " add spacer between loci "                
