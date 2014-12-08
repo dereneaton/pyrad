@@ -16,12 +16,8 @@ def combinefiles(GLOB):
         FS = glob.glob(GLOB)
     else:
         FS = glob.glob(GLOB)
-    ## look for file names match
-    firsts = [i for i in FS if ".forward." in i]
-    seconds = [ff.replace(".forward.",".reverse.") for ff in firsts]    
-    if not firsts:
-        firsts = [i for i in FS if "_R1_" in i]
-        seconds = [ff.replace("_R1_","_R2_") for ff in firsts]
+    firsts = [i for i in FS if "_R1_" in i]
+    seconds = [ff.replace("_R1_","_R2_") for ff in firsts]
     if len(firsts) != len(seconds):
         raise Exception("different numbers of first and second read files.\
               Check that the names of files are correct")
@@ -35,9 +31,8 @@ def revcomp(s):
     return ss
 
 
-
 def matching(a,b, maxmismatch):
-    "allows for one base difference between barcodes"
+    "allows for N base difference between barcodes"
     if len(a) == len(b):
         t = [a[i]==b[i] for i in range(len(a))]
         if t.count(False) <= maxmismatch:
@@ -89,6 +84,7 @@ def findbcode(CUT,longB,l):
         else:
             barcode = ""
     return barcode
+
 
 
 def barmatch(C, Raws, CUT, datatype, num, maxmismatch, WORK, longB):
@@ -407,7 +403,7 @@ def main(Bcode, GLOB, CUT, datatype, Parallel, maxmismatch, WORK):
         if len(glob.glob(Bcode)) == 1:
             Bcode = glob.glob(Bcode)[0]
 
-    sys.stderr.write("\n\tstep 1: sorting reads by barcode\n ")
+    sys.stderr.write("\n\tstep 1: sorting reads by barcode\n\t ")
 
     " seperate double digest cut sites, only need first read one for now "
     if "," in CUT:
@@ -420,7 +416,7 @@ def main(Bcode, GLOB, CUT, datatype, Parallel, maxmismatch, WORK):
     " DO THE BARCODE SORTING "
     writefunc(GLOB, Parallel, Bcode, CUT, datatype, maxmismatch, WORK)
 
-    names = [line.split("\t")[0] for line in open(Bcode).readlines()]
+    names = [line.split()[0] for line in open(Bcode).readlines()]
 
     " remove tiny sorted temp files "
     if len(glob.glob(GLOB)) > 1:
@@ -431,7 +427,6 @@ def main(Bcode, GLOB, CUT, datatype, Parallel, maxmismatch, WORK):
                     statinfo = os.stat(ff)
                     s = statinfo.st_size
                     if s < 1000:
-                        #os.system("/bin/cat "+ff+" >> "+WORK+"fastq/removed_errors.txt")
                         os.remove(ff)
                         
 
