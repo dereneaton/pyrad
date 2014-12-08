@@ -284,6 +284,7 @@ def alignFUNC(infile, minspecies, ingroup,
                 sss = [D1[key]+"nnnn"+D2[key] for key in keys]
             else:
                 "align reads"
+                seqs = [[i] for i in seqs]
                 stringnames = alignfast(WORK,pronum,names,seqs,muscle)
                 if len(stringnames) < 1:
                     print 'aaaaaaah'
@@ -558,7 +559,7 @@ def DoStats(ingroup, outgroups, outname,
     print >>statsout, str(0)+"\t"+str(zero)+"\t"+str(pis.count(0))
     for i in range(1,max(max(set(snps))+1,max(set(pis))+1)):
         print >>statsout, str(i)+"\t"+str(snps.count(i)+pis.count(i))+"\t"+str(pis.count(i))
-    totalvar = sum(snps)+sum(pis)+1
+    totalvar = sum(snps)+sum(pis)
     print >>statsout, "total var=",totalvar
     print >>statsout, "total pis=",sum(pis)
 
