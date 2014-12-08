@@ -10,7 +10,6 @@ def make(WORK, outname, names, longname, formats):
     
     " read in loci file "
     finalfile = open(WORK+"outfiles/"+outname+".loci").read() 
-    #finalfile = open(infile).read()
 
     " dict for saving the full matrix "
     F = {}
@@ -28,16 +27,15 @@ def make(WORK, outname, names, longname, formats):
 
         ## delete those columns
         narray = np.delete(array, emps, 1)
-        minray = len("".join(narray[0]).replace("x",""))
+        minray = len("".join(narray[0]).replace("x","n").replace("n",""))
 
         ## append data to dict
         for name in names:
             if name in anames:
-                F[name] += "".join(narray[anames.index(name)]).replace("x","")
+                F[name] += "".join(narray[anames.index(name)]).replace("x","n").replace("n","")
             else:
-                F[name] += "".join(["N"]*minray)  #len(narray[0]))
+                F[name] += "".join(["N"]*minray)  
 
-    #if 'p' in formats:
     " print out .PHY file "
     superout = open(WORK+"outfiles/"+outname+".phy",'w')
     print >>superout, len(F), len("".join(F[names[0]]).replace("x",""))
