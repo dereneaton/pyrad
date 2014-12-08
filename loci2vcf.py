@@ -24,8 +24,8 @@ def make(WORK, version, outname, mindepth, names):
     print >>outfile, "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">"
     print >>outfile, "\t".join(["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO    ","FORMAT"]+list(names))
 
-    loci = open(inloci).read().strip().split("|")[0:]
-
+    loci = open(inloci).read().split("|\n")
+    snps = 0
     for locusnumber in range(len(loci)):
         samps = [i.split(" ")[0][1:] for i in loci[locusnumber].strip().split("\n")[:-1]]
         loc = np.array([tuple(i.split(" ")[-1]) for i in loci[locusnumber].strip().split("\n")[:-1]])
@@ -45,6 +45,7 @@ def make(WORK, version, outname, mindepth, names):
                 REF = alignable.most_common([i for i in col if i not in list("-RKYSWMN")])
                 ALT = set([i for i in col if (i in list("ATGC-N")) and (i!=REF)])
                 if ALT:
+                    snps += 1
                     GENO = [REF]+list(ALT)
                     GENOS = []
                     for samp in names:
@@ -57,9 +58,8 @@ def make(WORK, version, outname, mindepth, names):
                                 GENOS.append(str(GENO.index(f[0]))+"|"+str(GENO.index(f[1])))
                         else:
                             GENOS.append("./.")
-                    print >>outfile, "\t".join([`locusnumber`, `base+1`, '.', REF, ",".join(ALT), "20", "PASS",
+                    print >>outfile, "\t".join([`locusnumber+1`, `base+1`, '.', REF, ",".join(ALT), "20", "PASS",
                                                 ";".join(["NS="+NS, "DP="+DP]), "GT"]+GENOS)
-
     outfile.close()
 
 if __name__ == "__main__":
