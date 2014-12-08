@@ -12,141 +12,7 @@ import operator
 import gzip
 from potpour import Worker
 
-
-def binomprobr(n1,n2,e,r):
-    """
-    given two bases are observed at a site
-    n1 and n2, and the error rate e, the
-    probability the site is truly aa,bb,ab
-    is calculated using binomial distribution
-    as in Li_et al 2009, 2011, and if
-    coverage > 500, 500 reads were randomly
-    sampled.
-    """
-    prior_homo = ((1.-r)/2.)
-    prior_het = r
-    ab = scipy.misc.comb(n1+n2,n1)/(2.**(n1+n2))
-    aa= scipy.stats.binom.pmf(n1,n1+n2,e)
-    bb= scipy.stats.binom.pmf(n2,n1+n2,e)
-    aa = aa*prior_homo
-    bb = bb*prior_homo
-    ab = ab*prior_het
-    Q = [aa,bb,ab]
-    Qn = ['aa','bb','ab']
-    P = max(Q)/float(aa+bb+ab)
-    return [P,Qn[Q.index(max(Q))]]
-
-
-def simpleconsens(n1,n2):
-    """
-    consensus calling for sites
-    with too low of coverage for
-    statistical calling. Only used
-    with 'lowcounts' option.
-    """
-    Qn = ['aa','bb','ab']
-    if not n2:
-        P = 0.99
-        aa = 1.0
-        ab = bb = 0.0
-    else:
-        P = 0.99
-        aa = bb = 0.0
-        ab = 1.0
-    Q = [aa,bb,ab]
-    return [P,Qn[Q.index(max(Q))]]
-
-
-def hetero(n1,n2):
-    """
-    returns IUPAC symbol for ambiguity bases,
-    used for polymorphic sites.
-    """
-    D = {('G','A'):"R",
-         ('G','T'):"K",
-         ('G','C'):"S",
-         ('T','C'):"Y",
-         ('T','A'):"W",
-         ('C','A'):"M"}
-    a = D.get((n1,n2))
-    b = D.get((n2,n1))
-    if a:
-        return a
-    else:
-        return b
-
-
-def unhetero(amb):
-    amb = amb.upper()
-    " returns bases from ambiguity code"
-    D = {"R":("G","A"),
-         "K":("G","T"),
-         "S":("G","C"),
-         "Y":("T","C"),
-         "W":("T","A"),
-         "M":("C","A")}
-    return D.get(amb)
-
-
-def uplow(b1):
-    " allele precedence "
-    " G > T > C > A "
-    D = {('G','A'):"G",
-         ('A','G'):"G",
-         ('G','T'):"G",
-         ('T','G'):"G",
-         ('G','C'):"G",
-         ('C','G'):"G",
-         ('T','C'):"T",
-         ('C','T'):"T",
-         ('T','A'):"T",
-         ('A','T'):"T",
-         ('C','A'):"C",
-         ('A','C'):"C"}
-    r = D.get(b1)
-    if not r:
-        r = b1[0]
-    return r
-    
-
-def findalleles(consensus,sss,bbb):
-    cons = list(consensus)
-    " relative to first base "
-    bigbase = uplow(tuple([i.split("_")[0] for i in bbb]))
-    bigallele = bbb.index([i for i in bbb if i.split("_")[0] == bigbase][0])
-    for k in range(1,len(sss)):
-        c = uplow(tuple([i.split("_")[k] for i in bbb]))
-        which = bbb.index([i for i in bbb if i.split("_")[k] == c][0])
-        if bbb[bigallele] != bbb[which]:
-            cons[sss[k]] = cons[sss[k]].lower()
-    return "".join(cons)
-
-
-
-def breakalleles(consensus):
-    """ break ambiguity code consensus seqs
-    into two alleles """
-    a1 = ""
-    a2 = ""
-    bigbase = ""
-    for base in consensus:
-        if base in tuple("RKSYWM"):
-            a,b = unhetero(base)
-            d = set([a,b])
-            a1 += uplow((a,b))
-            a2 += d.difference(uplow((a,b))).pop()
-            if not bigbase:
-                bigbase = uplow((a,b))
-        elif base in tuple("rksywm"):
-            a,b = unhetero(base)
-            d = set([a,b])
-            a2 += uplow((a,b))
-            a1 += d.difference(uplow((a,b))).pop()
-        else:
-            a1 += base
-            a2 += base
-    return a1,a2
-
+from consensdp import binomprobr, simpleconsens, hetero, unhetero, uplow, findalleles,breakalleles, removerepeat_Ns
 
 
 def stack(D):
@@ -157,7 +23,7 @@ def stack(D):
     L = len(D)
     counts = []
     for i in range(len(D[0])):
-        A=C=T=G=N=M=0
+        A=C=T=G=N=M=X=n=0
         for nseq in range(L):
             A += D[nseq][i].count("A")
             C += D[nseq][i].count("C")
@@ -165,65 +31,30 @@ def stack(D):
             G += D[nseq][i].count("G")
             N += D[nseq][i].count("N")
             M += D[nseq][i].count("-")
-        counts.append( [[A,C,T,G],N,M] )
+            X += D[nseq][i].count("X")
+            n += D[nseq][i].count("n")            
+        counts.append( [[A,C,T,G],N,M,X,n] )
     return counts
 
 
-def ffmin(x):
-    d = []
-    for i,j in enumerate(x):
-        if j not in ["-","N"]:
-            d.append(i)
-    return min(d)
-
-def ffmax(x):
-    d = []
-    for i,j in enumerate(x):
-        if j not in ["-","N"]:
-            d.append(i)
-    return max(d)
-
-
-def removerepeat_Ns(shortcon):
-    """
-    checks for interior Ns in consensus seqs
-    remove those that arise next to single repeats 
-    of at least 3 bases, which may be sequencing errors
-    on deep coverage repeats """
-    Nlocs = [i for i,j in enumerate(shortcon) if j=="N"]
-    repeats = set()
-    for n in Nlocs:
-        r1 = len(set(list(shortcon)[n-3:n]))
-        if r1 < 2:
-            repeats.add(n)
-        r2  = len(set(list(shortcon)[n+1:n+4]))
-        if r2 < 2:
-            repeats.add(n)
-    return "".join([j for (i,j) in enumerate(shortcon) if i not in repeats])
-
-
-
 def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
-              haplos,CUT,upperSD,strict,lowcounts):
+              ploidy,CUT,upperSD,strict,lowcounts):
     """
     from a clust file f,
     reads in all copies at a locus and sorts
     bases at each site, tests for errors at the
     site according to error rate, calls consensus
     """
-    if ".gz" in infile[-4:]:
-        f = gzip.open(infile,'rb')
-    else:
-        f = open(infile,'r')
+    f = gzip.open(infile,'r')
     k = itertools.izip(*[iter(f)]*2)
     bases = ['A','C','T','G']
     Dic = {}
     Errors = []
     haplo = []
+    Plist = []
     locus = minsamplocus = npoly = P = 0
     while 1:
-        try :
-            first = k.next()
+        try: first = k.next()
         except StopIteration: break
         itera = [first[0],first[1]]
         fname = itera[0].strip().split(";")[0]
@@ -234,24 +65,27 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
         S2      = []         ## list for sequence data
         alleles = []         ## for measuring # alleles, detect paralogs
         locus += 1           ## recording n loci
-        diploid = 0          ## for measuring # alleles, detect paralogs
+        ploidy = 0           ## for measuring # alleles, detect paralogs
         nHs = 0              ## will record heterozygous sites in this locus
         consensus  = ""       ## empty vector for consensus sequence
         consensus1 = ""       ## empty vector for consensus sequence
         consensus2 = ""       ## empty vector for consensus sequence
         basenumber = 1        ## for recording error locations
+
         while itera[0] != "//\n":
             nreps = int(itera[0].strip().split(";")[1].replace("size=",""))
 
             " append sequence * number of dereps "
-            for i in range(nreps):
-                S.append(itera[1].strip())
-                S2.append(tuple(itera[1].strip()))
+            for i in xrange(nreps):
+                " compatibility from pyrad 2 -> 3 "
+                ss = itera[1].strip().replace("X","n")
+                S.append(ss)
+                S2.append(ss)
             itera = k.next()
 
         " separate first and second read clusters "
-        firsts = [tuple(i.split("X")[0]) for i in S]
-        seconds = [tuple(i.split("X")[-1]) for i in S]
+        firsts = [tuple(i.split("n")[0]) for i in S]
+        seconds = [tuple(i.split("n")[-1]) for i in S]
 
         " call first read consensus "
         " Apply depth and paralog filters "
@@ -269,7 +103,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
 
                     " speed hack = if diploid exclude if a third base present at > 20% "
                     quickthirdbasetest = 0
-                    if haplos == 2:
+                    if ploidy == 2:
                         if float(n3)/(n1+n2+n3+n4) > 0.20:
                             quickthirdbasetest = 1
                     if not quickthirdbasetest:
@@ -287,9 +121,8 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                         """ if lowcounts, make base calls by majority instead of statistics
                         when depth is below mindepth """
                         if lowcounts:       ## include low count sites or no
-                            if n1+n2 >= 5:   # (mindepth-1):
-                                P,who = binomprobr(n1,n2,float(E),H)
-                            else:
+                            P,who = binomprobr(n1,n2,float(E),H)
+                            if P<0.95:
                                 P,who = simpleconsens(n1,n2)
                         else:
                             P,who = binomprobr(n1,n2,float(E),H)
@@ -332,7 +165,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
             if "@" not in consensus1:
                 if consensus1.count("N") <= maxN:        ## only allow maxN internal "N"s in a locus
                     if nHs < maxH:                       ## only allow maxH Hs, shortcut if first read fail
-                        basenumber += 4
+                        basenumber += 4  ## separator length
                         
                         " call second read consensus "
                         RAD = stack(seconds)
@@ -346,7 +179,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
 
                                 " speed hack = if diploid exclude if a third base present at > 20% "
                                 quickthirdbasetest = 0
-                                if haplos == 2:
+                                if  ploidy == 2:
                                     if float(n3)/(n1+n2+n3+n4) > 0.20:
                                         quickthirdbasetest = 1
                                 if not quickthirdbasetest:
@@ -410,7 +243,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                         "create concatenated consensus sequence from pairs "
                         if "@" not in consensus2:
                             consensus2.replace("-","N")
-                            consensus = consensus1 + "XXXX" + consensus2
+                            consensus = consensus1 + "nnnn" + consensus2
 
 
                         " filter applies to concatenated sequence "
@@ -419,7 +252,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                                 " only allow maxH polymorphic sites in a locus "
                                 if nHs <= maxH:
                                     " filter for number of 2 alleles - diploids "
-                                    if haplos:
+                                    if ploidy:
                                         al = []
                                         " only check if more than one hetero site present "
                                         if len(alleles) > 1:
@@ -445,7 +278,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
 
                                             " set correct alleles relative to first polymorphic base"
                                             if AL:
-                                                if diploid <= haplos:
+                                                if diploid <= ploidy:
                                                     sss = [zz-1 for zz in alleles]
                                                     consensus = findalleles(consensus,sss,AL)
                                                     ## TODO: incorporate option to output alleles for haplos>2
@@ -463,7 +296,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                                 " remove internal - or N, if low count "
                                 shortcon1 = removerepeat_Ns(shortcon1)
                                 " strip terminal N's from either end "
-                                Dic[fname] = shortcon1 + "XXXX" +consensus2
+                                Dic[fname] = shortcon1 + "nnnn" +consensus2
                                 npoly += nHs
                                         
 
@@ -518,7 +351,7 @@ def upSD(handle,mindepth):
 
 
 def main(Parallel, E, H, ID, mindepth, subset,
-         maxN, maxH, haplos, CUT, datatype,
+         maxN, maxH, ploidy, CUT, datatype,
          lowcounts, strict, WORK, maxstack):
 
     " find clust.xx directory "
@@ -556,7 +389,7 @@ def main(Parallel, E, H, ID, mindepth, subset,
             else:
                 upperSD = int(maxstack)
             work_queue.put([handle,E,H,mindepth,maxN,maxH,datatype,
-                            haplos,CUT,upperSD,strict,lowcounts])
+                            ploidy,CUT,upperSD,strict,lowcounts])
             submitted += 1
         else:
             print "\tskipping "+handle.replace(".clustS",".consens")+\
