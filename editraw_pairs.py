@@ -348,8 +348,6 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
     exclude = reads that were excluded
     trimmed = reads that had adapter trimmed but were kept
     passed = total kept reads
-    "
-    #note: you can set minimum length of kept trimmed reads on line 32 the params file 
-    #kept trimmed (fragment) reads written to""" ,WORK+"mergedreads/\n"
+    """
     outstats.close()
 
