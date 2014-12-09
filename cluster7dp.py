@@ -629,13 +629,15 @@ def main(WORK, parallel, wclust, mindepth,
         FS.sort(key=operator.itemgetter(1), reverse = True)
         FS = [i[0] for i in FS]
 
-    else:
+    elif len(glob.glob(WORK+"edits/"+subset+"*.edit*")) == 1:
         f = glob.glob(WORK+"edits/"+subset+"*.edit*")
         size = os.stat(f[0])
         if size.st_size > 0:
             FS = f
         else:
             print "excluding "+f[0]+" file is empty"
+    else:
+        print "\tNo .edit files found in edits/ dir."
 
     sys.stderr.write("\n\tde-replicating files for clustering...\n")
 
