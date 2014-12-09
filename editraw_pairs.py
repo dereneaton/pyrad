@@ -239,21 +239,27 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
                         keep += 1
 
         if not orig % 5000:
-            if trimkeep:
-                with open(WORK+'mergedreads/'+str(n)+"M.fq",'a') as outfile:
-                    outfile.write("".join([z for z in writing_c]))
+            #if trimkeep:
+            #    with open(WORK+'mergedreads/'+str(n)+"M.fq",'a') as outfile:
+            #        outfile.write("".join([z for z in writing_c]))
             " writes only full length reads "
             with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
                 outfile.write("".join([z for z in writing_r]))
+            " writes only full length reads "
+            with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
+                outfile.write("".join([z for z in writing_c]))
             writing_r = []
             writing_c = []
 
-    if trimkeep:
-        with open(WORK+'mergedreads/'+str(n)+"M.fq",'a') as outfile:
-            outfile.write("".join([z for z in writing_c]))
+    #if trimkeep:
+    #    with open(WORK+'mergedreads/'+str(n)+"M.fq",'a') as outfile:
+    #        outfile.write("".join([z for z in writing_c]))
     " writes only full length reads "
     with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
         outfile.write("".join([z for z in writing_r]))
+    " writes only full length reads "
+    with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
+        outfile.write("".join([z for z in writing_c]))
     writing_r = []
     writing_c = []
 
