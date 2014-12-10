@@ -68,7 +68,7 @@ def make(WORK, outname, names, formats, seed):
         " Is bi-allelic ? "
         bisnps = []
         for i in maxlist:
-            if len(set([ss[ns.index(tax)][i] for tax in S])) < 3:
+            if len(set([ss[ns.index(tax)][i] for tax in S if tax in ns])) < 3:
                 bisnps.append(i)
 
         #rando = pis[np.random.randint(len(pis))]
