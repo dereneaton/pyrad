@@ -270,7 +270,8 @@ def comp(seq):
            .replace('T','a')\
            .replace('C','g')\
            .replace('G','c')\
-           .upper()
+           .replace('n','Z')\
+           .upper().replace("Z","n")
 
 
 def sortalign(stringnames):
@@ -324,26 +325,26 @@ def alignwrapPAIR(infile,mindepth,muscle,w2):
         if len(names) > 1:
             firsts  = [i.split("n")[0] for i in seqs]
             seconds = [i.split("n")[-1] for i in seqs]
-            
+
             " align first reads "
             stringnames = alignfast(names[0:200],firsts[0:200],muscle)
-            nn, ss = sortalign(stringnames)
+            nn1, ss = sortalign(stringnames)
             D1 = {}
-            for i in range(len(nn)):
-                D1[nn[i]] = ss[i]
+            for i in range(len(nn1)):
+                D1[nn1[i]] = ss[i]
             " reorder keys by nameiter order "
             keys = D1.keys()
             keys.sort(key=lambda x:int(x.split(";")[1].replace("size=","")), reverse=True)
 
             " align second reads "
             stringnames = alignfast(names[0:200],seconds[0:200],muscle)
-            nn, ss = sortalign(stringnames)
+            nn2, ss = sortalign(stringnames)
             D2 = {}
-            for i in range(len(nn)):
-                D2[nn[i]] = ss[i]
+            for i in range(len(nn2)):
+                D2[nn2[i]] = ss[i]
             
             " check that second reads do not align poorly "
-            badpair = any([i.count("-")>int(w2) for i in D2.values()])
+            badpair = any([D2[i].count("-")>int(w2) for i in D2 if '_trim' not in i])
 
             if not badpair:
                 for key in keys:
@@ -398,14 +399,13 @@ def alignwrap(infile,mindepth,muscle,w1):
         seqs = []
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip())
+            seqs.append(itera[1].strip().replace("nnnn",""))
             itera = k.next()
         if len(names) > 1:
             " keep only the 200 most common dereps, aligning more is surely junk "
             stringnames = alignfast(names[0:200],seqs[0:200],muscle)
             nn, ss = sortalign(stringnames)
             D1 = {}
-
             leftlimit = 0
             for i in range(len(nn)):
                 """ apply filter for number of indels again, post-alignment,
@@ -420,6 +420,7 @@ def alignwrap(infile,mindepth,muscle,w1):
                     
             " reorder keys by derep number "
             keys = D1.keys()
+            print keys
             keys.sort(key=lambda x:int(x.split(";")[1].replace("size=","")), reverse=True)
             for key in keys:
                 STACK.append(key+'\n'+D1[key][leftlimit:])
@@ -665,7 +666,7 @@ def main(WORK, parallel, wclust, mindepth,
         sys.stderr.write("\n\tstep 3: within-sample clustering of "+\
                          `len(FS)`+" samples at \n\t        "+`wclust`+\
                          " similarity. Running "+`np`+" parallel jobs\n\t"+\
-                         " \twith up to"+`nthreads`+" threads per job. "+\
+                         " \twith up to "+`nthreads`+" threads per job."+\
                          " If needed, \n\t\tadjust to avoid CPU and MEM limits\n\n")
     else:
         sys.stderr.write("\n\tstep 3: rebuilding clusters from unfinished step 3 files\n")
