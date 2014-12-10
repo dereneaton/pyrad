@@ -527,9 +527,9 @@ def main():
                            mindepth, taxadict, minhits, seed)
 
         if '8' in k:
-            cluster7dp.main(WORK, parallel, wclust, mindepth, vsearch,
-                            subset, datatype, muscle, w1, w2, minuniq, MASK, remake=1)
-                            
+            cluster7dp.main(WORK, parallel, wclust, mindepth,
+                            subset, datatype, w1, w2, minuniq,
+                            MASK, muscle, vsearch, threads, remake=1)
 
     if options.dtest:
         readin = [line.strip() for line in open(options.dtest).readlines()]
