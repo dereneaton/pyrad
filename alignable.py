@@ -116,7 +116,7 @@ def trimmer(overhang, nn, sss, datatype, minspecies):
     FM2 = SM2 = None
 
     " only trim if more than three samples "
-    if minspecies > 3:
+    if minspecies > 0:
         if 'pair' in datatype:
             firsts = [i.split("n")[0] for i in sss]
             seconds = [i.split("n")[-1] for i in sss]
