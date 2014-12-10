@@ -116,7 +116,11 @@ def trimmer(overhang, nn, sss, datatype, minspecies):
     FM2 = SM2 = None
 
     " only trim if more than three samples "
-    if minspecies > 0:
+    mintcov = 4
+    if minspecies < 4:
+        mintcov = minspecies
+    
+    if minspecies > 1:
         if 'pair' in datatype:
             firsts = [i.split("n")[0] for i in sss]
             seconds = [i.split("n")[-1] for i in sss]
@@ -136,14 +140,14 @@ def trimmer(overhang, nn, sss, datatype, minspecies):
             " trim2 means that all samples with data have data at that site"
             if a == 1:
                 " trim1 1st left overhang "
-                FM1 = min([i for i in xrange(len(firsts[0])) if [j<=i for j in leftlimit].count(True) > 3])
+                FM1 = min([i for i in xrange(len(firsts[0])) if [j<=i for j in leftlimit].count(True) >= mintcov])
             elif a == 2:
                 try: FM1 = min([i for i in xrange(len(firsts[0])) if [j<=i for j in leftlimit].count(True) == len(nn)])
                 except ValueError: FM1 = 1
                         
             if b == 1:
                 " trim 1st right overhang "
-                SM1 = max([i for i in xrange(len(firsts[0])) if [j>=i for j in rightlimit].count(True) > 3])
+                SM1 = max([i for i in xrange(len(firsts[0])) if [j>=i for j in rightlimit].count(True) >= mintcov])
             elif b == 2:
                 try: SM1 = max([i for i in xrange(len(firsts[0])) if [j>=i for j in rightlimit].count(True) == len(nn)])
                 except ValueError: SM1 = 1
@@ -154,7 +158,7 @@ def trimmer(overhang, nn, sss, datatype, minspecies):
 
             if c == 1:
                 " trim1 2nd left overhang "
-                try: FM2 = min([i for i in xrange(len(seconds[0])) if [j<=i for j in leftlimit].count(True) > 3])
+                try: FM2 = min([i for i in xrange(len(seconds[0])) if [j<=i for j in leftlimit].count(True) >= mintcov])
                 except ValueError:
                     " no sites where 4 samples have data "
                     FM2 = 1
@@ -170,7 +174,7 @@ def trimmer(overhang, nn, sss, datatype, minspecies):
 
             if d == 1:
                 " trim 2nd right overhang "
-                SM2 = max([i for i in xrange(len(seconds[0])) if [j>=i for j in rightlimit].count(True) > 3])
+                SM2 = max([i for i in xrange(len(seconds[0])) if [j>=i for j in rightlimit].count(True) >= mintcov])
             elif d == 2:
                 SM2 = max([i for i in xrange(len(seconds[0])) if [j>=i for j in rightlimit].count(True) == len(nn)])+1
 
