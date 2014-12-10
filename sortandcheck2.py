@@ -415,7 +415,6 @@ def main(Bcode, GLOB, CUT, datatype, Parallel, maxmismatch, WORK):
 
     " DO THE BARCODE SORTING "
     writefunc(GLOB, Parallel, Bcode, CUT, datatype, maxmismatch, WORK)
-
     names = [line.split()[0] for line in open(Bcode).readlines()]
 
     " remove tiny sorted temp files "
