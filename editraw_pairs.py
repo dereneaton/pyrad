@@ -181,7 +181,7 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
                 " first read is (maybe) good, now filter second reads "
                 SS = dd[1].strip()
                 ph = map(ord,dd[3].strip())
-                " if PEAR filtered then seqs are reversed "
+                " if PEAR filtered then seqs are revcomps "
                 if '.forward' in infile:
                     SS = revcomp(SS)
                     ph = ph[::-1]
@@ -226,13 +226,15 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
                     if cutter:
                         if cutter > max(36,trimkeep):
                             sout = ">"+n+"_"+str(keepcut)+"_trim1"+"\n"+s[:cutter]+\
-                                   "\n"+d[2]+d[3][:cutter]+"\n"
+                                   "nnnnN\n"#+d[2]+d[3][:cutter]+"\n"
                             writing_c.append(sout)
                             keepcut += 1
-                            sout = ">"+n+"_"+str(keepcut)+"_trim2"+"\n"+revcomp(s2[x:cutter+5])+\
-                                   "\n"+d[2]+d[3][x:cutter+5]+"\n"
-                            writing_c.append(sout)
-                            keepcut += 1
+                            ## cannot keep second read in pairddrad clustering method, but can in pairgbs
+                            if datatype == 'pairgbs':
+                                sout = ">"+n+"_"+str(keepcut)+"_trim2"+"\nNnnnn"+revcomp(s2[x:cutter+5])+\
+                                       "\n"#+d[2]+d[3][x:cutter+5]+"\n"
+                                writing_c.append(sout)
+                                keepcut += 1
                     else:
                         sout = ">"+n+"_"+str(keep)+"_pair"+"\n"+s[:-1]+"nnnn"+revcomp(s2[x:])+"\n"
                         writing_r.append(sout)
