@@ -420,7 +420,6 @@ def alignwrap(infile,mindepth,muscle,w1):
                     
             " reorder keys by derep number "
             keys = D1.keys()
-            print keys
             keys.sort(key=lambda x:int(x.split(";")[1].replace("size=","")), reverse=True)
             for key in keys:
                 STACK.append(key+'\n'+D1[key][leftlimit:])
