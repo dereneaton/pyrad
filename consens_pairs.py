@@ -410,10 +410,11 @@ def main(Parallel, E, H, ID, mindepth, subset,
 
     " get results"
     stats = open(WORK+'stats/s5.consens.txt','a+')
-    print >>stats,  "taxon"+" "*15+"\tnloci\tf1loci\tf2loci\tnsites\tnpoly\tpoly"
+    print >>stats,  "taxon\tnloci\tf1loci\tf2loci\tnsites\tnpoly\tpoly"
     for i in range(submitted):
         a,b,c,d,e,f,g = result_queue.get()
-        print >> stats, "\t".join(map(str,[a+" "*(20-len(a)),b,c,d,e,f,g]))
+        nn = a.replace(".clustS.gz","")
+        print >> stats, "\t".join(map(str,[nn,b,c,d,e,f,g]))
     print >>stats, """
     ## nloci = number of loci
     ## f1loci = number of loci with >N depth coverage
