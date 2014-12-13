@@ -26,6 +26,7 @@ def make(WORK, version, outname, mindepth, names):
 
     loci = open(inloci).read().split("|\n")
     snps = 0
+    vcflist = []
     for locusnumber in range(len(loci)):
         samps = [i.split(" ")[0][1:] for i in loci[locusnumber].strip().split("\n")[:-1]]
         loc = np.array([tuple(i.split(" ")[-1]) for i in loci[locusnumber].strip().split("\n")[:-1]])
@@ -58,8 +59,17 @@ def make(WORK, version, outname, mindepth, names):
                                 GENOS.append(str(GENO.index(f[0]))+"|"+str(GENO.index(f[1])))
                         else:
                             GENOS.append("./.")
-                    print >>outfile, "\t".join([`locusnumber+1`, `base+1`, '.', REF, ",".join(ALT), "20", "PASS",
-                                                ";".join(["NS="+NS, "DP="+DP]), "GT"]+GENOS)
+                    vcflist.append("\t".join([`locusnumber+1`, `base+1`, '.', REF, ",".join(ALT), "20", "PASS",
+                                              ";".join(["NS="+NS, "DP="+DP]), "GT"]+GENOS))
+        if not locusnumber % 1000:
+            outfile.write( "\n".join(vcflist)+"\n" )
+            vcflist = []
+                                              
+                    #print >>outfile, "\t".join([`locusnumber+1`, `base+1`, '.', REF, ",".join(ALT), "20", "PASS",
+                    #                            ";".join(["NS="+NS, "DP="+DP]), "GT"]+GENOS)
+    
+
+    outfile.write( "\n".join(vcflist) )
     outfile.close()
 
 if __name__ == "__main__":
