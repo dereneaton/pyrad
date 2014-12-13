@@ -549,21 +549,23 @@ def DoStats(ingroup, outgroups, outname,
     print >>statsout, "\n"
 
     " print variable sites counter "
-    print >>statsout, "## var = number of loci containing n variable sites."
-    print >>statsout, "## pis = number of loci containing n parsimony informative var sites."
-    print >>statsout, '\t'.join(['n','var','PIS'])
+    print >>statsout, "## nvar = number of loci containing n variable sites (pis+autapomorphies)."
+    print >>statsout, "## sumvar = sum of variable sites (SNPs)."
+    print >>statsout, "## pis = number of loci containing n parsimony informative sites."
+    print >>statsout, "## sumpis = sum of parsimony informative sites."    
+    print >>statsout, "\t"+'\t'.join(['nvar','sumvar','PIS','sumPIS'])
 
-    pis = [line.count("*") for line in finalfile.split("\n") if "|" in line]
-    snps = [line.count("-") for line in finalfile.split("\n") if "|" in line]
-    zero = 0
-    for line in finalfile.split("\n"):
-        if "|" in line:
-            if line.count("*")+line.count("-")==0:
-                zero += 1
-    print >>statsout, str(0)+"\t"+str(zero)+"\t"+str(pis.count(0))
-    for i in range(1,max(max(set(snps))+1,max(set(pis))+1)):
-        print >>statsout, str(i)+"\t"+str(snps.count(i)+pis.count(i))+"\t"+str(pis.count(i))
-    totalvar = sum(snps)+sum(pis)
+    #nonpis = [line.count("-") for line in finalfile.split("\n") if "|" in line]
+    snps   = [line.count("-")+line.count("*") for line in finalfile.split("\n") if "|" in line]
+    pis    = [line.count("*") for line in finalfile.split("\n") if "|" in line]
+    zero   = sum([line.count("*")+line.count("-")==0 for line in finalfile.split("\n") if "|" in line])
+
+    print >>statsout, str(0)+"\t"+str(zero)+"\t"+str(0)+"\t"+str(pis.count(0))+"\t"+str(0)
+    for i in range(1,max(snps)+1):
+        sumvar = sum([(j)*snps.count(j) for j in range(1,i+1)])
+        sumpis = sum([(j)*pis.count(j) for j in range(1,i+1)])
+        print >>statsout, str(i)+"\t"+str(snps.count(i))+"\t"+str(sumvar)+"\t"+str(pis.count(i))+"\t"+str(sumpis)
+    totalvar = sum(snps)#+sum(pis)
     print >>statsout, "total var=",totalvar
     print >>statsout, "total pis=",sum(pis)
 
@@ -715,9 +717,10 @@ def main(outgroup, minspecies, outname,
         loci2phynex.make(WORK,outname,names,longname, formats)
 
     if any([i in formats for i in ['u','s','k','t','g']]):
-        print "\twriting unlinked SNPs file"
         if 's' in formats:
             print "\t  + writing full SNPs file"
+        if 'u' in formats:
+            print "\t  + writing unlinked SNPs file"
         if 'k' in formats:
             print "\t  + writing STRUCTURE file"            
         if 'g' in formats:
