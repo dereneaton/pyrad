@@ -218,7 +218,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
     Dic = {}
     Errors = []
     haplo = []
-    Plist = []
+    #Plist = []
     locus = minsamplocus = npoly = P = 0
     while 1:
         try: first = k.next()
@@ -381,7 +381,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
 
                             AL = sorted(set(al), key=al.count)
                             ploidy = len(AL)
-                            Plist.append(ploidy)
+                            #Plist.append(ploidy)
                             
                             " set correct alleles relative to first polymorphic base"
                             if AL:
@@ -391,7 +391,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                                 else:
                                     consensus += "@E"
 
-                        else: Plist.append(1)
+                        #else: Plist.append(1)
                         
                     if "@" not in consensus:
                         " strip N's from either end "
