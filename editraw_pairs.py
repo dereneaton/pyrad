@@ -320,6 +320,8 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
                     args = [WORK, handle, CUT, float(pN), trimkeep, strict, Q, datatype]
                     work_queue.put(args)
                     submitted += 1
+                else:
+                    print 'skipping',handle,", file is empty"
             else:
                 print "\t"+n+'.edit'+" already in edits/"
     else:
