@@ -622,11 +622,6 @@ def main(outgroup, minspecies, outname,
     if not os.path.exists(WORK+'outfiles'):
         os.makedirs(WORK+'outfiles')
 
-    " find muscle"
-    if not cmd_exists(muscle):
-        print "cannot find muscle, edit path in input file"
-        sys.exit()
-
     " read names from file "
     f = gzip.open(infile,'r').readlines()
     names = set(["_".join(i.split(">")[1].split("_")[:-2]) for i in f if ">" in i])
@@ -687,8 +682,8 @@ def main(outgroup, minspecies, outname,
     " check if output files already exist with this outname prefix "
     if os.path.exists(WORK+"outfiles/"+outname+".loci"):
         print "\n\tWarning: data set "+outname+".loci already exists"
-        print "\t  Skipping re-alignment. Creating extra data formats from the existing file"
-        print "\t  To create a new .loci file and alignment move/delete "+outname+".loci or change"
+        print "\t  Skipping re-alignment. Creating extra data formats from the existing .loci file."
+        print "\t  To create a new .loci file and stats output move/delete "+outname+".loci or change"
         print "\t  the outname prefix in the params file\n"
 
     else:
