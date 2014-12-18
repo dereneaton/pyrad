@@ -20,6 +20,7 @@ def stack(D):
     from list of bases at a site D,
     returns an ordered list of counts of bases
     """
+    ## TODO: replace with Counter
     L = len(D)
     counts = []
     for i in range(len(D[0])):
@@ -121,8 +122,9 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                         """ if lowcounts, make base calls by majority instead of statistics
                         when depth is below mindepth """
                         if lowcounts:       ## include low count sites or no
-                            P,who = binomprobr(n1,n2,float(E),H)
-                            if P<0.95:
+                            if n1+n2 >= 5:
+                                P,who = binomprobr(n1,n2,float(E),H)
+                            else:
                                 P,who = simpleconsens(n1,n2)
                         else:
                             P,who = binomprobr(n1,n2,float(E),H)
@@ -269,8 +271,8 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                                             " in which case it is likely a true heterozygous site "
                                             " but contains a sequencing error also              "
                                             ## a hack for now. But very conservative.
-                                            if len(al) >= 5:
-                                                al = [i for i in al if al.count(i) > len(al)/10.]
+                                            #if len(al) >= 5:
+                                            #    al = [i for i in al if al.count(i) > len(al)/10.]
                                                 #TODO allow only 1 bp difference for excludes
 
                                             AL = sorted(set(al), key=al.count)
