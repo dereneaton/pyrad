@@ -178,14 +178,11 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep):
     if not os.path.exists(WORK+'edits'):
         os.makedirs(WORK+'edits')
 
-    " used to find if files already exist "
-    lookfor = ".edit"
-
     " load up work queue "
     submitted = 0
     work_queue = multiprocessing.Queue()
     if len(glob.glob(FQs)) > 1:
-        FS = [f for f in glob.glob(FQs)]
+        FS = glob.glob(FQs)
 
         " order files by size "
         for i in range(len(FS)):
@@ -204,6 +201,8 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep):
                     args = [WORK, handle, CUT, float(pN), trimkeep, strict, Q]
                     work_queue.put(args)
                     submitted += 1
+                else:
+                    print "skipping",handle,", file is empty"
             else:
                 print "\t"+finder+" already in edits/"
 
