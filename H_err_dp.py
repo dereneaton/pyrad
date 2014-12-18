@@ -242,7 +242,7 @@ def main(Parallel,ID,minsamp,subset,haplos,WORK,CUT,datatype):
         
     # if haploid data
     if haplos == 1:
-        sys.stderr.write("""\n\tapplying haploid-based test (infer E while H is fixed to 0)""")
+        sys.stderr.write("\n\tapplying haploid-based test (infer E while H is fixed to 0)\n\t")
 
     # if double digest use first cut site
     if "," in CUT:
