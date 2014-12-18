@@ -608,7 +608,7 @@ def main(outgroup, minspecies, outname,
          outform, WORK, gids, CUT,
          a1, a2, datatype, subset,
          version, mindepth, taxadict,
-         minhits, seed):
+         minhits, seed, ploidy):
 
     " remove old temp files "
     if glob.glob(WORK+".chunk_*"):
@@ -720,7 +720,7 @@ def main(outgroup, minspecies, outname,
             print "\t  + writing STRUCTURE file"            
         if 'g' in formats:
             print "\t  + writing geno file"            
-        loci2SNP.make(WORK, outname, names, formats, seed)
+        loci2SNP.make(WORK, outname, names, formats, seed, ploidy)
 
     " make treemix output "
     if "t" in formats:

@@ -11,7 +11,7 @@ from itertools import chain
 import alignable
 
 
-def make(WORK, outname, names, formats, seed):
+def make(WORK, outname, names, formats, seed, ploidy):
     np.random.seed(int(seed))
     finalfile = open(WORK+"outfiles/"+outname+".loci").read()
     longname = max(map(len,names))
@@ -128,12 +128,16 @@ def make(WORK, outname, names, formats, seed):
              'C': '3',
              'N': '-9',
              '-': '-9'}
-
-        for line in SF:
-            print >>structout, line+(" "*(longname-len(line)+3))+\
-                     "\t"*6+"\t".join([B[alignable.unstruct(j)[0]] for j in Si[line]])
-            print >>structout, line+(" "*(longname-len(line)+3))+\
-                     "\t"*6+"\t".join([B[alignable.unstruct(j)[1]] for j in Si[line]])
+        if ploidy > 1:
+            for line in SF:
+                print >>structout, line+(" "*(longname-len(line)+3))+\
+                      "\t"*6+"\t".join([B[alignable.unstruct(j)[0]] for j in Si[line]])
+                print >>structout, line+(" "*(longname-len(line)+3))+\
+                      "\t"*6+"\t".join([B[alignable.unstruct(j)[1]] for j in Si[line]])
+        else:
+            for line in SF:
+                print >>structout, line+(" "*(longname-len(line)+3))+\
+                      "\t"*6+"\t".join([B[alignable.unstruct(j)[1]] for j in Si[line]])
         structout.close()
 
 
@@ -149,4 +153,4 @@ def make(WORK, outname, names, formats, seed):
 
 
 if __name__ == "__main__":
-    make(WORK, outname, names, formats, seed)
+    make(WORK, outname, names, formats, seed, ploidy)

@@ -526,7 +526,7 @@ def main():
                            outform, WORK, gids, CUT,
                            a1, a2, datatype, subset,
                            parser.version.split(" ")[1],
-                           mindepth, taxadict, minhits, seed)
+                           mindepth, taxadict, minhits, seed, haplos)
 
         if '8' in k:
             cluster7dp.main(WORK, parallel, wclust, mindepth,
