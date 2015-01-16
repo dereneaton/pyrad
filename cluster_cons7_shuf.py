@@ -165,26 +165,29 @@ def makeclust(handle,datatype,gid,
             #del LLL
         else:       
             for key,values in U.items():
+                ## reduction, only write seed if minimum hits reached
                 if (len(values)+1) >= int(minmatch):
-                    " reduction, only write seed if minimum hits reached"
-                    seq = key+"\n"+D[key]+"\n"
-                    seq += "//\n"
-                    outfile.write(seq)
+                    ## fix for if short seqs are excluded during clustering
+                    if D.get(key):
+                        seq = key+"\n"+D[key]+"\n"
+                        seq += "//\n"
+                        outfile.write(seq)
 
     else:
         " map sequences to clust file in order "
         seq = ""
         for key,values in U.items():
-            seq = key+"\n"+D[key]+'\n'
-            S = [i[0] for i in values]
-            R = [i[1] for i in values]
-            for i in range(len(S)):
-                if R[i] == "+":
-                    seq += S[i] + '\n' + D[S[i]] + "\n"
-                else:
-                    seq += S[i] + '\n' + comp(D[S[i]][::-1]) + "\n"
-            seq += "//\n"
-            outfile.write(seq)
+            if D.get(key):   ## fix for if short seqs are excluded during clustering
+                seq = key+"\n"+D[key]+'\n'
+                S = [i[0] for i in values]
+                R = [i[1] for i in values]
+                for i in range(len(S)):
+                    if R[i] == "+":
+                        seq += S[i] + '\n' + D[S[i]] + "\n"
+                    else:
+                        seq += S[i] + '\n' + comp(D[S[i]][::-1]) + "\n"
+                seq += "//\n"
+                outfile.write(seq)
     outfile.close()
     Userout.close()
     if gid: nomatch.close()
