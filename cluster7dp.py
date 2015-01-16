@@ -34,9 +34,9 @@ def makederepclust(outfolder,handle,w1,datatype):
     U = {}
     for line in [line.split("\t") for line in Userout]:
         if line[1].endswith(";") == False: # Workaround to comply with both vsearch and usearch
-                line[1] += ";"
-                line[0] += ";"
-                line[5] = re.sub("\..*\n","\n", line[5])
+            line[1] += ";"
+            line[0] += ";"
+            line[5] = re.sub("\..*\n","\n", line[5])
         if ">"+line[1] in U:
             U[">"+line[1]].append([">"+line[0],line[4],line[5].strip(),line[3]])
         else:
@@ -355,7 +355,8 @@ def alignwrapPAIR(infile,mindepth,muscle,w2):
                 multihits += 1
                 
         else:
-            STACK.append("_".join(names[0].split("_")[:-1])+'\n'+seqs[0])
+            if seqs:  ## sequence could have been trimmed
+                STACK.append("_".join(names[0].split("_")[:-1])+'\n'+seqs[0])
 
         cnts += 1
         if STACK:
