@@ -4,7 +4,7 @@ import sys
 
 def main(version):
     output = """
-==** parameter inputs for pyRAD version %s  **==========================  affected step ==
+==** parameter inputs for pyRAD version %s  **======================== affected step ==
 ./                          ## 1. Working directory                                 (all)
 ./*.fastq.gz                ## 2. Loc. of non-demultiplexed files (if not line 16)  (s1)
 ./*.barcodes                ## 3. Loc. of barcode file (if not line 16)             (s1)
