@@ -74,7 +74,7 @@ def Dstatfoil(Loc,pat):
         Loc.ababa += ( (1.-p1)*p2*(1.-p3a)*p3b*(1.-o) )           #     DFO[2]   DIL[4]   DFI[2]   DOL[4]
         Loc.baaba += ( p1*(1.-p2)*(1.-p3a)*p3b*(1.-o) )           #     DFO[4]   DIL[2]   DFI[6]   DOL[0]
 
-        ## new to foil, contrast of xxbba
+        ## new to foil, contrast of bbxxa
         Loc.bbbaa += ( p1*p2*p3a*(1.-p3b)*(1.-o) )                #     DFO[1]   DIL[1]
         Loc.bbaba += ( p1*p2*(1.-p3a)*p3b*(1.-o) )                #     DFO[5]   DIL[5]
 
@@ -151,7 +151,8 @@ def IUAfreq(Loc, L):
                      all([i in ["N",'-'] for i in patlist['p3b']]),
                      all([i in ["N",'-'] for i in patlist['o']]) ]):
             " if site in not invariable "
-            if len(set(col)) > 1:
+            isvar = len(set(col)-set(["N","-"])) > 1
+            if isvar:
                 " look for patterns in site "
                 Loc = polyDstatfoil(Loc, patlist)
     return Loc
@@ -577,7 +578,7 @@ def multiproc_it(subtests,alignfile,outfile, nboots,nproc,namelen,makesort,makeb
 
         sign = []
         for s,d in zip([ZFO,ZIL,ZFI,ZOL],[DFO,DIL,DFI,DOL]):
-            if s>3.0:
+            if s>3.5:
                 if d>0:
                     sign.append("+")
                 else:
