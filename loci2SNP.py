@@ -115,7 +115,7 @@ def make(WORK, outname, names, formats, seed, ploidy):
 
     statsout  = open(WORK+"stats/"+outname+".stats",'a')
     print >>statsout, "sampled unlinked SNPs=",len(Si.values()[0])
-    print >>statsout, "sampled bi-allelic SNPs=",len(Si.values()[0])-bis
+    print >>statsout, "sampled unlinked bi-allelic SNPs=",len(Si.values()[0])-bis
     statsout.close()
 
     if 'k' in formats:
