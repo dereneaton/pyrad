@@ -213,6 +213,7 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep):
 
     else:
         print "\tNo demultiplexed files found. Check path."
+        sys.exit()
 
     " create a queue to pass to workers to store the results "
     result_queue = multiprocessing.Queue()
