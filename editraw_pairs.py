@@ -329,7 +329,7 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
                     print 'skipping',handle,", file is empty"
             else:
                 print "\t"+n+'.edit'+" already in edits/"
-    elif:
+    elif len(fqs) == 1:
         " if only one file "
         work_queue.put([WORK, glob.glob(FQs)[0], CUT, float(pN), trimkeep, strict, Q, datatype])
         submitted += 1
