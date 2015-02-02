@@ -2,7 +2,7 @@
 
 import numpy as np
 
-
+## TODO: Make faster and reduce memory load...
 def make(WORK, outname, names, longname, formats):
     " order names "
     names = list(names)
