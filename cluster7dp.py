@@ -18,8 +18,9 @@ def makederepclust(outfolder,handle,w1,datatype):
     if os.path.exists(outfolder+"/"+handle.split("/")[-1].replace(".edit",".u")):
         Userout = open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".u"), 'r').readlines()
     else:
+        Userout = []
         print "\n\tSkipping: no '.u' file available for sample",handle.split("/")[-1]
-        sys.exit()
+        #sys.exit()
     outfile = gzip.open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz"),'w')
 
     " load reads into a Dictionary"
@@ -88,8 +89,8 @@ def makederepclust(outfolder,handle,w1,datatype):
     else:
         if diff:
             pp = diff.pop()
-            D[i][1].replace("n","Z").upper().replace("Z","n")            
-            outfile.write("\n//\n//"+pp+"\n"+D[i][1]+'\n')
+            D[D.keys()[0]][1].replace("n","Z").upper().replace("Z","n")            
+            outfile.write(pp+"\n"+D[D.keys()[0]][1]+'\n')
     outfile.write("//\n//\n")
     outfile.close()
     del f
