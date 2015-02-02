@@ -224,18 +224,23 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
 
                 if not badread:
                     if cutter:
+                        ## second read was trimmed
                         if cutter > max(36,trimkeep):
+                            ## include only the first read, with an N placeholder for read2
+                            ## since it was trimmed off
                             sout = ">"+n+"_"+str(keepcut)+"_trim1"+"\n"+s[:cutter]+\
                                    "nnnnN\n"#+d[2]+d[3][:cutter]+"\n"
                             writing_c.append(sout)
                             keepcut += 1
-                            ## cannot keep second read in pairddrad clustering method, but can in pairgbs
+                            ## cannot keep trimmed second read in pairddrad method
+                            ## but can in pairgbs
                             if datatype == 'pairgbs':
                                 sout = ">"+n+"_"+str(keepcut)+"_trim2"+"\nNnnnn"+revcomp(s2[x:cutter+5])+\
                                        "\n"#+d[2]+d[3][x:cutter+5]+"\n"
                                 writing_c.append(sout)
                                 keepcut += 1
                     else:
+                        ## second read is good, not trimmed
                         sout = ">"+n+"_"+str(keep)+"_pair"+"\n"+s[:-1]+"nnnn"+revcomp(s2[x:])+"\n"
                         writing_r.append(sout)
                         keep += 1
@@ -268,9 +273,9 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
     f1.close()
     f2.close()
     sys.stderr.write(".")
-    if not trimkeep:
-        keepcut = 0
-    return [handle.split("/")[-1].replace(".edit",""),str(orig),str(keepcut/2),str(keep)]
+    if datatype=='pairgbs':
+        keepcut = keepcut*2
+    return [handle.split("/")[-1].replace(".edit",""),str(orig),str(keepcut),str(keep)]
 
 
 
@@ -324,8 +329,14 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
                     print 'skipping',handle,", file is empty"
             else:
                 print "\t"+n+'.edit'+" already in edits/"
+    elif:
+        " if only one file "
+        work_queue.put([WORK, glob.glob(FQs)[0], CUT, float(pN), trimkeep, strict, Q, datatype])
+        submitted += 1
+
     else:
         print "no de-multiplexed files found."
+        sys.exit()
 
     " create a queue to pass to workers to store the results "
     result_queue = multiprocessing.Queue()
