@@ -297,9 +297,10 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                                 shortcon1 = consensus1.rstrip("N").replace("-","N")
                                 " remove internal - or N, if low count "
                                 shortcon1 = removerepeat_Ns(shortcon1)
-                                " strip terminal N's from either end "
-                                Dic[fname] = shortcon1 + "nnnn" +consensus2
-                                npoly += nHs
+                                " check for length not trimmed "
+                                if (len(shortcon1) > 35) and (len(consensus2) > 35):
+                                    Dic[fname] = shortcon1 + "nnnn" +consensus2
+                                    npoly += nHs
                                         
 
 
