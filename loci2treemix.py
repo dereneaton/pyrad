@@ -35,6 +35,7 @@ def make(WORK, outname, taxadict, minhits):
     nsamp = int(nsamp)
     nsnps = int(nsnps)
     NDATA = np.empty([int(nsamp),int(nsnps)],dtype='object')
+    excludes = 0
 
     ## read SNP matrix into a numpy.array
     for line in range(len(dat[1:])):
@@ -88,6 +89,11 @@ def make(WORK, outname, taxadict, minhits):
                 bunch.append(alignable.unstruct(SNPS[i][keep])[1])
             FREQ[tax].append("".join(bunch))
 
+    ## check that no included taxa have no data
+    # for i,j in zip(taxa,minhits):
+    #     if not FREQ[i]:
+    #         print "taxon/group ",i,"has no data shared across at least",j,"samples, it must be excluded to build treemix output"
+
     ## output files
     outfile = gzip.open(WORK+"/outfiles/"+outname+".treemix.gz",'w')
 
@@ -104,10 +110,11 @@ def make(WORK, outname, taxadict, minhits):
         ## exclude non-biallelic SNPs
         if "0,0" not in " ".join(H):
             ## exclude invariable sites given this sampling
-            if not all([i.split(",")[1] == '0' for i in H]):
+            if not all([zz.split(",")[1] == '0' for zz in H]):
                 print >>outfile, " ".join(H)
-        
-
+        else:
+            excludes += 1
+    #print excludes, "EEEE"
     outfile.close()
 
 if __name__ == "__main__":

@@ -127,7 +127,7 @@ def main():
         try: outform   = str(readin[31])
         except (ValueError,IndexError): outform = ""
         try: lowcounts   = int(readin[32])
-        except (ValueError, IndexError): lowcounts = 0
+        except (ValueError, IndexError): lowcounts = mindepth
         ##mergepairs = str(readin[31])
         ##if mergepairs in [0,""]: mergepairs = 0
         try: trimkeep = int(readin[33])
