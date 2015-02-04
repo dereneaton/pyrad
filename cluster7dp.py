@@ -132,8 +132,10 @@ def sortbysize(vsearch, handle):
           " -sortbysize "+handle.replace(".edit",".step")+\
           " -output "+handle.replace(".edit",".derep")
     subprocess.call(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
-    cmd2 = "/bin/rm "+handle.replace(".edit",".step")
-    subprocess.call(cmd2, shell=True)
+    if os.path.exists(handle.replace(".edit",".step")):
+        os.remove(handle.replace(".edit",".step"))
+    #cmd2 = "/bin/rm "+
+    #subprocess.call(cmd2, shell=True)
 
 
 

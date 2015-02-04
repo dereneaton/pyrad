@@ -22,6 +22,7 @@ def binomprobr(n1,n2,e,r):
     coverage > 500, 500 reads were randomly
     sampled.
     """
+    maf = n1/(n1+n2)
     prior_homo = ((1.-r)/2.)
     prior_het = r
     ab = scipy.misc.comb(n1+n2,n1)/(2.**(n1+n2))
@@ -33,27 +34,31 @@ def binomprobr(n1,n2,e,r):
     Q = [aa,bb,ab]
     Qn = ['aa','bb','ab']
     P = max(Q)/float(aa+bb+ab)
-    return [P,Qn[Q.index(max(Q))]]
+    return [P,maf,Qn[Q.index(max(Q))]]
 
 
 def simpleconsens(n1,n2):
     """
-    consensus calling for sites
+    majority consensus calling for sites
     with too low of coverage for
     statistical calling. Only used
     with 'lowcounts' option.
     """
     Qn = ['aa','bb','ab']
-    if not n2:
-        P = 0.99
-        aa = 1.0
-        ab = bb = 0.0
-    else:
-        P = 0.99
-        aa = bb = 0.0
-        ab = 1.0
-    Q = [aa,bb,ab]
-    return [P,Qn[Q.index(max(Q))]]
+    maf = n1/(n1+n2)
+    # if not n2:
+    #     P = 1.0
+    #     aa = 1.0
+    #     ab = bb = 0.0
+    # else:
+    #     P = 0.99
+    #     aa = bb = 0.0
+    #     ab = 1.0
+    ## create an option that saves 
+    ## frequencies. Useful for pooled sample data sets.
+    #Q = [aa,bb,ab]
+    #return [P,Qn[Q.index(max(Q))]]
+    return [1.0,maf,'aa']
 
 
 def hetero(n1,n2):
@@ -282,15 +287,16 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                 #print "".join(list(S[s])), "new"
             
         " Apply depth and paralog filters "
-        if (len(S) >= mindepth) and (len(S) < upperSD):  
+        if (len(S) >= min(lowcounts,mindepth)) and (len(S) < upperSD):  
             minsamplocus += 1
             RAD = stack(S)
             for site in RAD:
                 nchanged = 0         
 
                 " minimum depth of coverage for base calling "
-                if sum(site[0]) < mindepth:
-                    cons = "N"; n1 = mindepth-1; n2=0   ## prevents zero division error.
+                depthofcoverage = sum(site[0])
+                if depthofcoverage < min(mindepth,lowcounts):
+                    cons = "N"; n1 = depthofcoverage-1; n2=0   ## prevents zero division error.
                 else:
                     n1,n2,n3,n4 = sorted(site[0],reverse=True)
 
@@ -311,16 +317,13 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                             n1 = list(firstfivehundred[:500]).count("A")
                             n2 = list(firstfivehundred[:500]).count("B")
 
-                        """ if lowcounts, make base calls by majority instead of statistics
-                        when depth is below mindepth """
-                        if lowcounts:       ## include low count sites or no
-                            ## make base call using one or the other
-                            if n1+n2 >= 5:
-                                P,who = binomprobr(n1,n2,float(E),H)
-                            else:
-                                P,who = simpleconsens(n1,n2)
-                        else:
-                            P,who = binomprobr(n1,n2,float(E),H)
+                        """ make base calls using... """
+                        if n1+n2 >= mindepth:
+                            """ if above stat minimum """
+                            P,maf,who = binomprobr(n1,n2,float(E),H)
+                        elif n1+n2 >= lowcounts:
+                            """ if above maj rule minimum"""
+                            P,maf,who = simpleconsens(n1,n2)
 
                         """ if the base could be called with 95% probability """
                         if float(P) >= 0.95:
@@ -355,7 +358,6 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                         "paralog flag"
                         cons = "@"
                 consensus += cons
-
                 basenumber += 1
 
             " only allow maxH polymorphic sites in a locus "
@@ -512,10 +514,10 @@ def main(Parallel, E, H, ID, mindepth, subset,
 
     " get results"
     stats = open(WORK+'stats/s5.consens.txt','a+')
-    print >>stats,  "taxon"+" "*15+"\tnloci\tf1loci\tf2loci\tnsites\tnpoly\tpoly"
+    print >>stats,  "taxon          \tnloci\tf1loci\tf2loci\tnsites\tnpoly\tpoly"
     for i in range(submitted):
         a,b,c,d,e,f,g = result_queue.get()
-        print >> stats, "\t".join(map(str,[a.replace(".clustS.gz","")+" "*(20-len(a)),b,c,d,e,f,g]))
+        print >> stats, "\t".join(map(str,[a.replace(".clustS.gz","")+" "*(10-len(a)),b,c,d,e,f,g]))
     print >>stats, """
     ## nloci = number of loci
     ## f1loci = number of loci with >N depth coverage

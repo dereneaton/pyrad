@@ -90,15 +90,16 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
 
         " call first read consensus "
         " Apply depth and paralog filters "
-        if (len(firsts) >= mindepth) and (len(firsts) < upperSD):  ## upper limit is meandepth + 2 SD
+        if (len(firsts) >= min(mindepth,lowcounts)) and (len(firsts) < upperSD):  ## upper limit is meandepth + 2 SD
             minsamplocus += 1
             RAD = stack(firsts)
             for site in RAD:
                 nchanged = 0         
 
                 " minimum depth of coverage for base calling at each site"
-                if sum(site[0]) < mindepth:
-                    cons = "N"; n1 = mindepth-1; n2=0   ## prevents zero division error.
+                depthofcoverage = sum(site[0])                
+                if depthofcoverage < min(mindepth,lowcounts):
+                    cons = "N"; n1 = depthofcoverage-1; n2=0   ## prevents zero division error.
                 else:
                     n1,n2,n3,n4 = sorted(site[0],reverse=True)
 
@@ -121,13 +122,20 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
 
                         """ if lowcounts, make base calls by majority instead of statistics
                         when depth is below mindepth """
-                        if lowcounts:       ## include low count sites or no
-                            if n1+n2 >= 5:
-                                P,who = binomprobr(n1,n2,float(E),H)
-                            else:
-                                P,who = simpleconsens(n1,n2)
-                        else:
-                            P,who = binomprobr(n1,n2,float(E),H)
+                        # if lowcounts:       ## include low count sites or no
+                        #     if n1+n2 >= 5:
+                        #         P,who = binomprobr(n1,n2,float(E),H)
+                        #     else:
+                        #         P,who = simpleconsens(n1,n2)
+                        # else:
+                        #     P,who = binomprobr(n1,n2,float(E),H)
+                        """ make base calls using... """
+                        if n1+n2 >= mindepth:
+                            """ if above stat minimum """
+                            P,maf,who = binomprobr(n1,n2,float(E),H)
+                        elif n1+n2 >= lowcounts:
+                            """ if above maj rule minimum"""
+                            P,maf,who = simpleconsens(n1,n2)
 
                         """ if the base could be called with 95% probability """
                         if float(P) >= 0.95:
@@ -174,8 +182,9 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                         for site in RAD:
                             nchanged = 0         
                             " minimum depth of coverage for base calling at each site"
-                            if sum(site[0]) < mindepth:
-                                cons = "N"; n1 = mindepth-1; n2=0   ## prevents zero division error.
+                            depthofcoverage = sum(site[0])
+                            if depthofcoverage < mindepth:
+                                cons = "N"; n1 = depthofcoverage-1; n2=0   
                             else:
                                 n1,n2,n3,n4 = sorted(site[0],reverse=True)
 
@@ -196,15 +205,13 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                                         n1 = list(firstfivehundred[:500]).count("A")
                                         n2 = list(firstfivehundred[:500]).count("B")
 
-                                    """ if lowcounts, make base calls by majority instead of statistics
-                                    when depth is below mindepth """
-                                    if lowcounts:       ## include low count sites or no
-                                        if n1+n2 > (mindepth-1):
-                                            P,who = binomprobr(n1,n2,float(E),H)
-                                        else:
-                                            P,who = simpleconsens(n1,n2)
-                                    else:
-                                        P,who = binomprobr(n1,n2,float(E),H)
+                                    """ make base calls using... """
+                                    if n1+n2 >= mindepth:
+                                        """ if above stat minimum """
+                                        P,maf,who = binomprobr(n1,n2,float(E),H)
+                                    elif n1+n2 >= lowcounts:
+                                        """ if above maj rule minimum"""
+                                        P,maf,who = simpleconsens(n1,n2)
 
                                     """ if the base could be called with 95% probability """
                                     if float(P) >= 0.95:
