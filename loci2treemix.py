@@ -16,6 +16,9 @@ import alignable
 
 def make(WORK, outname, taxadict, minhits):
 
+    ## output files
+    outfile = gzip.open(WORK+"/outfiles/"+outname+".treemix.gz",'w')
+
     ## cleanup taxadict to just sample names
     taxa = OrderedDict()
     for group in taxadict:
@@ -28,7 +31,7 @@ def make(WORK, outname, taxadict, minhits):
     for i,j in zip(taxa,minhits):
         print "\t   ",i, taxa[i], 'minimum=',j
     
-    ## read in data to sample names
+    ## read in data from unlinked_snps to sample names
     infile = open(WORK.rstrip("/")+"/outfiles/"+outname+".unlinked_snps",'r')
     dat = infile.readlines()
     nsamp,nsnps = dat[0].strip().split(" ")
@@ -75,6 +78,7 @@ def make(WORK, outname, taxadict, minhits):
     keeps = []
     for snp in range(int(nsnps)):
         GG = []
+        ## if snp meets minhits requirement
         for tax,mins in zip(taxa,minhits):
             GG.append( sum([SNPS[i][snp] not in ["N","-"] for i in taxa[tax]]) >= int(mins))
         if all(GG):
@@ -84,9 +88,9 @@ def make(WORK, outname, taxadict, minhits):
         for tax in FREQ:
             bunch = []
             for i in taxa[tax]:
-                #print tax, i, SNPS[i][keep]
                 bunch.append(alignable.unstruct(SNPS[i][keep])[0])
                 bunch.append(alignable.unstruct(SNPS[i][keep])[1])
+                #print tax, i, SNPS[i][keep], bunch
             FREQ[tax].append("".join(bunch))
 
     ## check that no included taxa have no data
@@ -94,28 +98,26 @@ def make(WORK, outname, taxadict, minhits):
     #     if not FREQ[i]:
     #         print "taxon/group ",i,"has no data shared across at least",j,"samples, it must be excluded to build treemix output"
 
-    ## output files
-    outfile = gzip.open(WORK+"/outfiles/"+outname+".treemix.gz",'w')
-
-    ## print header
+    ## header
     print >>outfile, " ".join(FREQ.keys())
 
-    ## print data
+    ## data to file
     for i,j in enumerate(keeps):
         a1 = alleles[j][0]
         a2 = alleles[j][1]
         H = [str(FREQ[tax][i].count(a1))+","+str(FREQ[tax][i].count(a2)) for tax in FREQ]
-        #print [FREQ[tax][i] for tax in FREQ], " ".join(H)
+        HH = " ".join(H)
 
         ## exclude non-biallelic SNPs
-        if "0,0" not in " ".join(H):
+        if " 0,0 " not in HH:
             ## exclude invariable sites given this sampling
             if not all([zz.split(",")[1] == '0' for zz in H]):
                 print >>outfile, " ".join(H)
         else:
             excludes += 1
-    #print excludes, "EEEE"
+
     outfile.close()
+    
 
 if __name__ == "__main__":
     make(WORK, outname, taxadict)
