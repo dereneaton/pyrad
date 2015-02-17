@@ -143,7 +143,7 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q):
             s = s[:wheretocut1]
 
         if s.count("N") <= pN:             ## max allowed Ns
-            if len(s) >= max(36,trimkeep): ## if read is trimmed, must be minlen long
+            if len(s) >= max(32,trimkeep): ## if read is trimmed, must be minlen long
                 if wheretocut1:            ## if it was trimmed...
                     writing_c.append(">"+n+"_"+str(keepcut)+"_c1"+"\n"+s+"\n")
                     keepcut += 1

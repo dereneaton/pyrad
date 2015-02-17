@@ -176,7 +176,7 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
             wheretocut1 = Afilter(CUT2,s,strict,1)
 
         if s.count("N") <= pN:              ## max allowed Ns
-            if len(s) >= max(36,trimkeep):  ## if trimmed read1 length atleast t
+            if len(s) >= max(32,trimkeep):  ## if trimmed read1 length atleast t
 
                 " first read is (maybe) good, now filter second reads "
                 SS = dd[1].strip()
@@ -225,7 +225,7 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
                 if not badread:
                     if cutter:
                         ## second read was trimmed
-                        if cutter > max(36,trimkeep):
+                        if cutter > max(32,trimkeep):
                             ## include only the first read, with an N placeholder for read2
                             ## since it was trimmed off
                             sout = ">"+n+"_"+str(keepcut)+"_trim1"+"\n"+s[:cutter]+\
