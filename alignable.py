@@ -488,6 +488,17 @@ def makealign(ingroup, minspecies, outname, infile,
     os.system(cmd)                      ## outname add
     os.system("/bin/rm "+WORK+".not*")
 
+    locicounter = 1
+    infile = open(WORK+"outfiles/"+outname+".loci", 'r')
+    outfile = open(WORK+"outfiles/"+outname+".numberedloci", 'w')
+    for lines in infile:
+        if lines.startswith("//"):
+            lines = lines.replace(" " * len(str(locicounter)), str(locicounter), 1)
+            locicounter += 1
+	outfile.write(lines)
+        
+    infile.close()
+    outfile.close()
 
 def DoStats(ingroup, outgroups, outname, 
             WORK, minspecies,longname):
