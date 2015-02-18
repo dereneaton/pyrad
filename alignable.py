@@ -500,6 +500,7 @@ def makealign(ingroup, minspecies, outname, infile,
     infile.close()
     outfile.close()
 
+
 def DoStats(ingroup, outgroups, outname, 
             WORK, minspecies,longname):
 
