@@ -111,7 +111,7 @@ def make(WORK, outname, taxadict, minhits):
         ## exclude non-biallelic SNPs
         if " 0,0 " not in HH:
             ## exclude invariable sites given this sampling
-            if not all([zz.split(",")[1] == '0' for zz in H]):
+            if not all([zz.split(",")[1] in '0' for zz in H]):
                 print >>outfile, " ".join(H)
         else:
             excludes += 1

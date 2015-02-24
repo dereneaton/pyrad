@@ -38,9 +38,9 @@ def make(WORK, outname, taxadict, minhits, seed):
     MINS = zip(taxa.keys(), minhits)
 
     ## read in data to sample names
-    loci  = open(WORK+"/outfiles/"+outname+".loci",'r').read().strip().split("|\n")[:]
+    loci  = open(WORK+"/outfiles/"+outname+".loci",'r').read().strip().split("|")[:-1]
     for loc in loci:
-        samps = [i.split(" ")[0].replace(">","") for i in loc.split("\n") if ">" in i]
+        samps = [i.split()[0].replace(">","") for i in loc.split("\n") if ">" in i]
         ## filter for coverage
         GG = []
         for group,mins in MINS:
@@ -56,14 +56,14 @@ def make(WORK, outname, taxadict, minhits, seed):
     for group in taxadict:
         ## print a list of lengths of each locus
         if not done:
-            loclens = [len(loc.split("\n")[0].split(" ")[-1].replace("x","n").replace("n","")) for loc in keep]
+            loclens = [len(loc.split("\n")[1].split()[-1].replace("x","n").replace("n","")) for loc in keep]
             print >>outfile, " ".join(map(str,loclens))
             done += 1
 
         ## print a list of number of individuals in each locus
         indslist = []
         for loc in keep:
-            samps = [i.split(" ")[0].replace(">","") for i in loc.split("\n") if ">" in i]
+            samps = [i.split()[0].replace(">","") for i in loc.split("\n") if ">" in i]
             inds = sum([i in samps for i in taxa[group]])
             indslist.append(inds)
         print >>outfile, " ".join(map(str,indslist)), group
@@ -71,8 +71,8 @@ def make(WORK, outname, taxadict, minhits, seed):
         ## print sample id, spaces, and sequence data
         #for loc in range(len(keep)):
         for loc in range(len(keep)):
-            seqs = [i.split(" ")[-1] for i in keep[loc].split("\n") if \
-                    i.split(" ")[0].replace(">","") in taxa[group]]
+            seqs = [i.split()[-1] for i in keep[loc].split("\n") if \
+                    i.split()[0].replace(">","") in taxa[group]]
             for i in range(len(seqs)):
                 print >>outfile, group[0:8]+"_"+str(i)+\
                       (" "*(10-len(group[0:8]+"_"+str(i))))+seqs[i].replace("x","n").replace("n","")

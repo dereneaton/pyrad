@@ -27,16 +27,16 @@ def make(WORK, outname, names, formats, seed, ploidy):
     bis = 0
 
     " for each locus select out the SNPs"
-    for loc in finalfile.strip().split("|\n"):
+    for loc in finalfile.strip().split("|")[:-1]:
         pis = ""
         ns = []
         ss = []
         cov = {}  ## record coverage for each SNP
         for line in loc.split("\n"):
             if ">" in line:
-                ns.append(line.split(" ")[0].replace(">",""))
-                ss.append(line.split(" ")[-1])
-            if "//" in line:
+                ns.append(line.split()[0].replace(">",""))
+                ss.append(line.split()[-1])
+            else:
                 pis = [i[0] for i in enumerate(line) if i[1] in list('*-')]
                 
         " assign snps to S, and record coverage for usnps"
@@ -152,7 +152,7 @@ def make(WORK, outname, names, formats, seed, ploidy):
                 getref += 1
             SNProw = "".join(map(str,[alignable.unstruct(Si[j][i]).count(ref) if Si[j][i] != "N" \
                                       else "9" for j in SF]))
-            print ref,SNProw
+            ## print ref,SNProw
             if len(set(SNProw)) > 1:
                 print >>genoout, SNProw 
         genoout.close()
