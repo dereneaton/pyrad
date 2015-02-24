@@ -480,14 +480,37 @@ def makealign(ingroup, minspecies, outname, infile,
     for handle in glob.glob(WORK+".chunk*"):
         locus += int(result_queue.get())
 
-    " output stats and delete temp files... "
-    cmd = "/bin/cat "+WORK+".align* > "+WORK+"outfiles/"+outname+".loci"
-    os.system(cmd)                      ## outname add
-    os.system("/bin/rm "+WORK+".align* "+WORK+".chunk*")
-    cmd = "/bin/cat "+WORK+".not* > "+WORK+"outfiles/"+outname+".excluded_loci"
-    os.system(cmd)                      ## outname add
-    os.system("/bin/rm "+WORK+".not*")
 
+    " output loci and excluded loci and delete temp files... "
+
+    locicounter = 1
+    aligns = glob.glob(WORK+".align*")
+    locifile = open(WORK+"outfiles/"+outname+".loci", "w")
+    
+    for chunkfile in aligns:
+        chunkdata = open(chunkfile, "r")
+        for lines in chunkdata:
+            if lines.startswith("//"):
+                lines = lines.replace("|\n", "|"+str(locicounter)+"\n", 1)
+                locicounter += 1
+            locifile.write(lines)
+        chunkdata.close()
+        os.remove(chunkfile)
+    
+    locifile.close()
+    
+    unaligns = glob.glob(WORK+".not*")
+    excluded_loci_file = open(WORK+"outfiles/"+outname+".excluded_loci", "w")
+    
+    for excludechunk in unaligns:
+        excludedata = open(excludechunk, "r")
+        for lines in excludedata:
+            excluded_loci_file.write(lines)
+        excludedata.close()
+        os.remove(excludechunk)
+    
+    excluded_loci_file.close()
+    
 
 def DoStats(ingroup, outgroups, outname, 
             WORK, minspecies,longname):
