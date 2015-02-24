@@ -305,7 +305,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                                 " remove internal - or N, if low count "
                                 shortcon1 = removerepeat_Ns(shortcon1)
                                 " check for length not trimmed "
-                                if (len(shortcon1) > 35) and (len(consensus2) > 35):
+                                if (len(shortcon1) >= 32) and (len(consensus2) >= 32):
                                     Dic[fname] = shortcon1 + "nnnn" +consensus2
                                     npoly += nHs
                                         

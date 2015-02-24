@@ -400,7 +400,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                         shortcon = consensus.lstrip("N").rstrip("N").replace("-","N")
                         shortcon = removerepeat_Ns(shortcon)
                         if shortcon.count("N") <= maxN:        ## only allow maxN internal "N"s in a locus
-                            if len(shortcon) >= 36:            ## minimum length set to 36
+                            if len(shortcon) >= 32:            ## minimum length set to 36
                                 #print shortcon, 'keep'
                                 npoly += nHs
                                 Dic[fname] = shortcon
