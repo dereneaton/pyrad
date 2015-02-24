@@ -72,7 +72,7 @@ def Afilter(CUT,s,strict):
 
 
 
-def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q):
+def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
     """ three functions:
     (1) replaces low quality base calls with Ns,
     (2) checks for adapter sequence if strict set to 1 or 2 """
@@ -142,6 +142,10 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q):
             wheretocut1 = Afilter(comp(CUT2)[::-1],s,strict)
             s = s[:wheretocut1]
 
+        if datatype == 'merged':
+            " remove extra forward base so forwards match reverse length"
+            s = s[:-1]
+
         if s.count("N") <= pN:             ## max allowed Ns
             if len(s) >= max(32,trimkeep): ## if read is trimmed, must be minlen long
                 if wheretocut1:            ## if it was trimmed...
@@ -169,7 +173,7 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q):
 
 
 
-def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep):
+def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
     print >>sys.stderr, "\tstep 2: editing raw reads \n\t",
 
     " create output directories "
@@ -198,7 +202,7 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep):
                 finder = finder.replace('.'+finder.split(".")[-1], "").replace("_R1","")
             if finder+".edit" not in glob.glob(WORK+"edits/*"):
                 if os.stat(handle).st_size > 0:   ## exclude empty files
-                    args = [WORK, handle, CUT, float(pN), trimkeep, strict, Q]
+                    args = [WORK, handle, CUT, float(pN), trimkeep, strict, Q, datatype]
                     work_queue.put(args)
                     submitted += 1
                 else:
@@ -208,7 +212,7 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep):
 
     elif len(glob.glob(FQs)) == 1:
         " if only one file "
-        work_queue.put([WORK, glob.glob(FQs)[0], CUT, float(pN), trimkeep, strict, Q])
+        work_queue.put([WORK, glob.glob(FQs)[0], CUT, float(pN), trimkeep, strict, Q, datatype])
         submitted += 1
 
     else:
