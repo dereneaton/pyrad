@@ -17,7 +17,7 @@ except ImportError:
     from ordereddict import OrderedDict
 #-----------
 import sortandcheck2
-import editraw_rads, editraw_pairs, editraw_merges
+import editraw_rads, editraw_pairs
 import H_err_dp
 import cluster7dp
 import consensdp, consens_pairs
@@ -246,7 +246,7 @@ def main():
             k = tuple(str(options.steps))
 
         " check that the data type was entered correctly "
-        datopts = ['rad','gbs','ddrad','pairgbs','pairddrad','mergegbs','mergeddrad','merge']
+        datopts = ['rad','gbs','ddrad','pairgbs','pairddrad','merged']
         if datatype not in datopts:
             print "\t datatype argument (line 11) not recognized "
             sys.exit()
@@ -315,9 +315,9 @@ def main():
                 FQs = FQs+"*"
 
             " if not paired filter only read 1 "
-            if datatype in ['rad','ddrad','gbs']:
+            if datatype in ['rad','ddrad','gbs','merged']:
                 editraw_rads.main(parallel, WORK, FQs, CUT,
-                                  pN, Q, strict, trimkeep)
+                                  pN, Q, strict, trimkeep, datatype)
 
             elif datatype in ['pairddrad','pairgbs']:
                 " check for both CUT sites in pairddrad"
