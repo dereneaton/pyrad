@@ -17,9 +17,9 @@ def make(WORK, outname, names, longname, formats):
         F[name] = []
 
     " remove empty column sites and append edited seqs to dict F "
-    for loc in [i for i in finalfile.split("|")[:-1]]:
-        anames = [i.split(" ")[0][1:] for i in loc.strip().split("\n")[:-1]]
-        array = np.array([tuple(i.split(" ")[-1]) for i in loc.strip().split("\n")][:-1])
+    for loc in finalfile.split("//")[:-1]:
+        anames = [i.split()[0][1:] for i in loc.strip().split("\n") if ">" in i]
+        array = np.array([tuple(i.split()[-1]) for i in loc.strip().split("\n") if ">" in i])
 
         ## which columns are empty
         emps = [i for i in range(len(array.T)) if \

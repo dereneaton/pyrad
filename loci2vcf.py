@@ -24,12 +24,12 @@ def make(WORK, version, outname, mindepth, names):
     print >>outfile, "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">"
     print >>outfile, "\t".join(["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO    ","FORMAT"]+list(names))
 
-    loci = open(inloci).read().split("|\n")
+    loci = open(inloci).read().split("|")[:-1]
     snps = 0
     vcflist = []
     for locusnumber in range(len(loci)):
-        samps = [i.split(" ")[0][1:] for i in loci[locusnumber].strip().split("\n")[:-1]]
-        loc = np.array([tuple(i.split(" ")[-1]) for i in loci[locusnumber].strip().split("\n")[:-1]])
+        samps = [i.split()[0][1:] for i in loci[locusnumber].strip().split("\n") if ">" in i]
+        loc = np.array([tuple(i.split()[-1]) for i in loci[locusnumber].strip().split("\n") if ">" in i])
         NS = str(len(loc))
         DP = str(mindepth)
         for base in range(len(loc.T)):
