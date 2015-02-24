@@ -105,7 +105,7 @@ def derep(vsearch, handle, datatype, minuniq):
     else:
         T = "-threads 1"
     C = " -derep_fulllength "+handle
-    if datatype in ['pairgbs','gbs']:
+    if datatype in ['pairgbs','gbs','merge']:
         P = " -strand both "
     else:
         P = " "
@@ -194,7 +194,7 @@ def fullcluster(vsearch, outfolder, handle, wclust, parallel, datatype, fileno, 
         C = " -cluster_smallmem "+handle.replace(".edit",".firsts")
     else:
         C = " -cluster_smallmem "+handle.replace(".edit",".derep")
-    if datatype in ['gbs','mergegbs']:
+    if datatype in ['gbs','merge']:
         P = " -strand both "
         COV = " -query_cov .35 " 
     elif datatype == 'pairgbs':
