@@ -556,7 +556,7 @@ def DoStats(ingroup, outgroups, outname,
     print >>statsout, "## ntotal = number of loci for which at least ntaxa have data"
     print >>statsout, '\t'.join(['ntaxa','nloci','saved','ntotal'])
 
-    coverage = [i.count(">") for i in finalfile.strip().split("|\n")[:]]
+    coverage = [i.count(">") for i in finalfile.strip().split("//")[:-1]]
     if not coverage:
         print "\twarning: no loci meet 'min_sample' setting (line 11)\n\tno results written"
         sys.exit()
