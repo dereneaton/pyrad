@@ -296,7 +296,7 @@ def alignFUNC(infile, minspecies, ingroup,
                 nn, sss = sortalign(stringnames)
                 
             " now strip off cut sites "
-            if "merge" in datatype:
+            if datatype == "merged":
                 sss = [i[len(CUT1):-len(CUT2)] for i in sss]
             #elif datatype == 'gbs':
             #    sss = [i[len(CUT1):] for i in sss]

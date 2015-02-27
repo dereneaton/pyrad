@@ -70,7 +70,7 @@ def cluster(vsearch, handle, ID, datatype,
             U = " -userout "+handle.replace(".haplos_",".u")
 
     C = " -cluster_smallmem "+handle
-    if datatype in ['gbs','pairgbs','merge']:
+    if datatype in ['gbs','pairgbs','merged']:
         P = " -strand both"
         COV = " -query_cov .90 "  ## this can vary 
     else:

@@ -45,7 +45,7 @@ except ImportError:
 
 
 def main():
-    parser = OptionParser(prog="pyRAD", usage="%prog [options]", version="%prog 3.0.3")
+    parser = OptionParser(prog="pyRAD", usage="%prog [options]", version="%prog 3.0.4")
     parser.add_option('-p', action="store", type="string", dest="params",
                       help="input file for within sample filtering and clustering\n")
     parser.add_option('-s', action="store", dest="steps",
@@ -246,13 +246,13 @@ def main():
             k = tuple(str(options.steps))
 
         " check that the data type was entered correctly "
-        datopts = ['rad','gbs','ddrad','pairgbs','pairddrad','merged']
+        datopts = ['rad','gbs','ddrad','pairgbs','pairddrad','merged','2brad']
         if datatype not in datopts:
             print "\t datatype argument (line 11) not recognized "
             sys.exit()
-        if datatype == 'merge':
-            print "specify mergetype in params file, ex: mergeddrad or mergegbs "
-            sys.exit()
+        # if datatype == 'merged':
+        #     print "specify mergetype in params file, ex: mergeddrad or mergegbs "
+        #     sys.exit()
 
         " parse max_inserts argument "
         w1=3
@@ -315,11 +315,11 @@ def main():
                 FQs = FQs+"*"
 
             " if not paired filter only read 1 "
-            if datatype in ['rad','ddrad','gbs','merged']:
+            if 'pair' not in datatype:  # in ['rad','ddrad','gbs','merged','2brad']:
                 editraw_rads.main(parallel, WORK, FQs, CUT,
                                   pN, Q, strict, trimkeep, datatype)
 
-            elif datatype in ['pairddrad','pairgbs']:
+            else:   #elif datatype in ['pairddrad','pairgbs']:
                 " check for both CUT sites in pairddrad"
                 if datatype == 'pairddrad':
                     if "," not in CUT:

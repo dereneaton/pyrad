@@ -175,7 +175,10 @@ def barmatch(C, Raws, CUT, datatype, num, maxmismatch, WORK, longB):
 
         else:
             if longB[1] == 'same':
-                barcode = l[1][:longB[0]]
+                if datatype=='2brad':
+                    barcode = l[1][-longB[0]:]
+                else:
+                    barcode = l[1][:longB[0]]
             else:
                 barcode = findbcode(CUT,longB[0],l)
             if barcode:
@@ -189,8 +192,12 @@ def barmatch(C, Raws, CUT, datatype, num, maxmismatch, WORK, longB):
                 "saves reads from barcodes to a dictionary D"
                 if barcode in D:
                     #l[1] = CUT1+l[1][len(barcode)+len(CUT):]
-                    l[1] = l[1][len(barcode):]
-                    l[3] = l[3][len(barcode):]
+                    if datatype=='2brad':
+                        l[1] = l[1][:-len(barcode)]
+                        l[3] = l[3][:-len(barcode)]
+                    else:
+                        l[1] = l[1][len(barcode):]
+                        l[3] = l[3][len(barcode):]
                     D[barcode].append("\n".join(l).strip())
                     match += 1
                 else:

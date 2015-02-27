@@ -250,7 +250,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                 #print i, itera[1].strip(), itera[0].strip()[-1], leftjust, rights
                 
             " record left and right most index of seed and hits (for GBS) "
-            if datatype in ['gbs','mergegbs']:
+            if datatype in ['gbs','merged']:
                 " leftjust is seed's left "
                 if itera[0].strip()[-1] == ";":
                     leftjust = itera[1].index([i for i in itera[1] if i not in list("-N")][0])
@@ -265,7 +265,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
             itera = k.next()
 
         " trim off overhang edges of gbs reads "
-        if datatype in ['gbs','mergegbs']:
+        if datatype in ['gbs','merged']:
             if rights:
                 " record in name that there was a reverse hit"
                 fname = "_".join(fname.split("_")[0:-1])+"_c1"

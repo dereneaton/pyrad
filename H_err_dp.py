@@ -179,7 +179,7 @@ def consensus(f, minsamp, CUT1, CUT2, datatype):
                     S[s] = S[s][leftjust:rightjust+1] ## +1?
 
         " trim off restriction sites from end/s "
-        if datatype in ['mergegbs','mergeddrad','pairddrad','pairgbs','gbs']:
+        if datatype in ['merged','pairddrad','pairgbs','gbs']:
             for s in range(len(S)):
                 S[s] = S[s][len(CUT1):-(len(CUT2)+1)]
         else:
