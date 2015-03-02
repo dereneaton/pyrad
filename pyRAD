@@ -15,6 +15,15 @@ try:
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict
+#-----------   check for numpy and scipy
+try: import numpy
+except ImportError:
+    print "\n\tError: numpy is not installed/loaded"
+    sys.exit()
+try: import scipy.stats
+except ImportError:
+    print "\n\tError: scipy is not installed/loaded"
+    sys.exit()
 #-----------
 import sortandcheck2
 import editraw_rads, editraw_pairs
@@ -31,17 +40,7 @@ import Dtest, Dtest_5, Dtest_foil
 import createfile
 import potpour
 from potpour import Worker
-
-
-## check for numpy and scipy
-try: import numpy
-except ImportError:
-    print "\n\tError: numpy is not installed/loaded"
-    sys.exit()
-try: import scipy.stats
-except ImportError:
-    print "\n\tError: scipy is not installed/loaded"
-    sys.exit()
+#------------
 
 
 def main():
