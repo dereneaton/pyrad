@@ -17,10 +17,13 @@ def combinefiles(GLOB):
     else:
         FS = glob.glob(GLOB)
     firsts = [i for i in FS if "_R1_" in i]
+    if len(firsts) < 1:
+        print "\n\tFirst read files names must contain '_R1_'."
+        sys.exit()
     seconds = [ff.replace("_R1_","_R2_") for ff in firsts]
     if len(firsts) != len(seconds):
-        raise Exception("different numbers of first and second read files.\
-              Check that the names of files are correct")
+        print "different numbers of first and second read files. Check that the names of files are correct"
+        sys.exit()
     return zip(firsts,seconds)
 
 
@@ -371,7 +374,6 @@ def writefunc(GLOB,Parallel,Bcode,CUT,datatype,maxmismatch,WORK):
 
     Cnames = C.keys()
     Cnames.sort()
-    print Ms.values()
     try: maxl = max(map(len,map(str,Ms.values())))
     except ValueError: maxl = 5
 
@@ -426,16 +428,16 @@ def main(Bcode, GLOB, CUT, datatype, Parallel, maxmismatch, WORK):
     writefunc(GLOB, Parallel, Bcode, CUT, datatype, maxmismatch, WORK)
     names = [line.split()[0] for line in open(Bcode).readlines()]
 
-    " remove tiny sorted temp files "
-    if len(glob.glob(GLOB)) > 1:
-        for name in names:
-            if len(glob.glob(WORK+"fastq/."+name+"*")) > 0:
-                "remove very small files, probably errors"
-                for ff in glob.glob(WORK+'fastq/.'+name+"*"):
-                    statinfo = os.stat(ff)
-                    s = statinfo.st_size
-                    if s < 1000:
-                        os.remove(ff)
+    # " remove tiny sorted temp files "
+    # if len(glob.glob(GLOB)) > 1:
+    #     for name in names:
+    #         if len(glob.glob(WORK+"fastq/."+name+"*")) > 0:
+    #             "remove very small files, probably errors"
+    #             for ff in glob.glob(WORK+'fastq/.'+name+"*"):
+    #                 statinfo = os.stat(ff)
+    #                 s = statinfo.st_size
+    #                 if s < 1000:
+    #                     os.remove(ff)
                         
 
     " concatenate temp files "
