@@ -371,7 +371,9 @@ def writefunc(GLOB,Parallel,Bcode,CUT,datatype,maxmismatch,WORK):
 
     Cnames = C.keys()
     Cnames.sort()
-    maxl = max(map(len,map(str,Ms.values())))
+    print Ms.values()
+    try: maxl = max(map(len,map(str,Ms.values())))
+    except ValueError: maxl = 5
 
     hits = []
     for bar in Cnames:

@@ -143,7 +143,7 @@ def make(WORK, outname, names, formats, seed, ploidy):
 
     if 'g' in formats:
         "print out .geno file "
-        genoout = open(WORK+'outfiles/'+outname+".geno", 'w')
+        genoout = open(WORK+'outfiles/'+outname+".usnps.geno", 'w')
         for i in range(len(Si.values()[0])):
             getref = 0
             ref = "N"
@@ -155,6 +155,24 @@ def make(WORK, outname, names, formats, seed, ploidy):
             ## print ref,SNProw
             if len(set(SNProw)) > 1:
                 print >>genoout, SNProw 
+        genoout.close()
+
+    if 'g' in formats:
+        "print out .geno file "
+        genoout = open(WORK+'outfiles/'+outname+".snps.geno", 'w')
+        for i in range(len(S.values()[0])):
+            if S[SF[0]][i].strip("_").strip():
+                getref = 0
+                ref = "N"
+                while ref == "N":
+                    #print i, S[SF[0]][i]
+                    ref = alignable.unstruct(S[SF[getref]][i])[0]
+                    getref += 1
+                    SNProw = "".join(map(str,[alignable.unstruct(S[j][i]).count(ref) if \
+                                              S[j][i] != "N" else "9" for j in SF]))
+                ## print ref,SNProw
+                if len(set(SNProw)) > 1:
+                    print >>genoout, SNProw 
         genoout.close()
 
 
