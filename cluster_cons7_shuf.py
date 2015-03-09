@@ -182,10 +182,11 @@ def makeclust(handle,datatype,gid,
                 S = [i[0] for i in values]
                 R = [i[1] for i in values]
                 for i in range(len(S)):
-                    if R[i] == "+":
-                        seq += S[i] + '\n' + D[S[i]] + "\n"
-                    else:
-                        seq += S[i] + '\n' + comp(D[S[i]][::-1]) + "\n"
+                    if D.get(S[i]):   ## testing as fix for removed short reads...
+                        if R[i] == "+":
+                            seq += S[i] + '\n' + D[S[i]] + "\n"
+                        else:
+                            seq += S[i] + '\n' + comp(D[S[i]][::-1]) + "\n"
                 seq += "//\n"
                 outfile.write(seq)
     outfile.close()
