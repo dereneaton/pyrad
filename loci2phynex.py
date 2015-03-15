@@ -17,6 +17,7 @@ def make(WORK, outname, names, longname, formats):
         F[name] = []
 
     " remove empty column sites and append edited seqs to dict F "
+    blockend = 0
     for loc in finalfile.split("//")[:-1]:
         anames = [i.split()[0][1:] for i in loc.strip().split("\n") if ">" in i]
         array = np.array([tuple(i.split()[-1]) for i in loc.strip().split("\n") if ">" in i])
@@ -28,6 +29,10 @@ def make(WORK, outname, names, longname, formats):
         ## delete those columns
         narray = np.delete(array, emps, 1)
         minray = len("".join(narray[0]).replace("x","n").replace("n",""))
+
+        ## print block info (used to partition by locus)
+        #blockend += minray
+        #print blockend,
 
         ## append data to dict
         for name in names:
