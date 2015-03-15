@@ -400,47 +400,46 @@ def main():
                 print "\n\tfinished clustering"
             else:
                 """ re-expand clustprefix cluster groups in case no -s """
-                gids = []
-                groups = {}
-                minhits = []
+                Hgids = []
+                Hgroups = {}
+                Hminhits = []
                 "hierarchical clustering "
                 for line in clustprefix:
-                    gid, hits, inds = line.strip().split()
-                    gids.append(gid)
-                    minhits.append(hits)
-                    groups[gid] = []
-                    if "," in inds:
-                        inds = inds.split(",")
-                        for ind in inds:
-                            if "*" in ind:
-                                expanded = glob.glob(WORK+"clust"+wclust+"/"+ind+".consens*")
-                                groups[gid] += expanded #.append(expanded)
+                    Hgid, Hhits, Hinds = line.strip().split()
+                    Hgids.append(Hgid)
+                    Hminhits.append(Hhits)
+                    Hgroups[Hgid] = []
+                    if "," in Hinds:
+                        Hinds = Hinds.split(",")
+                        for Hind in Hinds:
+                            if "*" in Hind:
+                                expanded = glob.glob(WORK+"clust"+wclust+"/"+Hind+".consens*")
+                                Hgroups[Hgid] += expanded #.append(expanded)
                             else:
-                                groups[gid].append(WORK+"clust"+wclust+"/"+ind+".consens.gz")
+                                Hgroups[Hgid].append(WORK+"clust"+wclust+"/"+Hind+".consens.gz")
                     else:
-                        if "*" in inds:
-                            expanded = glob.glob(WORK+"clust"+wclust+"/"+inds+".consens*")
-                            groups[gid] += expanded #.append(expanded)
+                        if "*" in Hinds:
+                            expanded = glob.glob(WORK+"clust"+wclust+"/"+Hinds+".consens*")
+                            Hgroups[Hgid] += expanded #.append(expanded)
                         else:
-                            groups[gid].append(WORK+"clust"+wclust+"/"+inds+".consens.gz")
+                            Hgroups[Hgid].append(WORK+"clust"+wclust+"/"+Hinds+".consens.gz")
 
-                for i,j in zip(gids,minhits):
-                    for cons in groups[i]:
+                for i,j in zip(Hgids,Hminhits):
+                    for cons in Hgroups[i]:
                         if cons not in glob.glob(WORK+"clust"+wclust+"/*.consens.gz"):
                             print "\n\tsample name",cons,"in group",i,"does not match any filenames"
                             sys.exit()
 
                 preclusts = []
-                for i in groups.values():
+                for i in Hgroups.values():
                     preclusts += i
 
                 for cons in glob.glob(WORK+"clust"+wclust+"/*.consens.gz"):
                     if cons not in preclusts:
                         print "\n\twarning: sample",cons,"not assigned to a cluster group"
 
-                if not gids:
-                    gids = ""
-
+                #if not gids:
+                #    gids = ""
                     
                 " make prefix directory "
                 if not os.path.exists(WORK+'prefix/'):
@@ -464,11 +463,11 @@ def main():
                 result_queue = multiprocessing.Queue()
 
                 " submit jobs "
-                for (gid,minhit) in zip(gids,minhits):
-                    inlist = groups[gid]
+                for (Hgid,Hminhit) in zip(Hgids,Hminhits):
+                    inlist = Hgroups[Hgid]
                     work_queue.put([vsearch, wclust, datatype, 
                                     outgroup, seed,
-                                    gid, minhit, inlist,
+                                    Hgid, Hminhit, inlist,
                                     WORK, MASK, 1 ])
                         
                 " execute first tier jobs "    
@@ -482,7 +481,7 @@ def main():
 
                 " cluster second tier "
                 tier2clust.main(vsearch, wclust, datatype,
-                                gids, seed, WORK, MASK)
+                                Hgids, seed, WORK, MASK)
 
                 print "\n\tfinished clustering\n"
 
