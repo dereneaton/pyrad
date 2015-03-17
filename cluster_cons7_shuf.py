@@ -295,7 +295,7 @@ def makecons(vsearch, ID, datatype,
 
     " order by size while retaining randomization within size classes "
     D = [line.split('    ') for _, line in data]
-    DD = ["".join([i[0]+" "*(50-len(i[0])),i[1]]) for i in D]
+    DD = ["".join([i[0]+" "*(100-len(i[0])),i[1]]) for i in D]
     DD.sort(key=len, reverse=True)
     k = iter(["**".join([i.split(" ")[0],i.split(" ")[-1]]) for i in DD])
 
