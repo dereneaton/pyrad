@@ -128,7 +128,8 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
     while n.split(".")[-1] in ["fastq","fastQ","gz","fq","FastQ","nomerge"]:
         n = n.replace('.'+n.split(".")[-1], "")
     if '.forward' in n:
-        n = n.split(".unassembled")[0]
+        n = n.split(".forward")[0]
+        None
     else:
         n = n.replace("_R1","")
 
@@ -317,7 +318,8 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
             while n.split(".")[-1] in ["fastq","fastQ","gz","fq","FastQ","nomerge"]:
                 n = n.replace('.'+n.split(".")[-1], "")
             if '.forward.' in n:
-                n = n.split(".unassembled")[0]
+                n = n.split(".forward")[0]
+                None
             else:
                 "_".join(n.split('_R')[:-1])
             if WORK+"edits/"+n+".edit" not in glob.glob(WORK+"edits/*"):
@@ -352,7 +354,7 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
 
 
     " collect the results off the queue "
-    outstats = open(WORK+"stats/s2.rawedit.txt",'w')
+    outstats = open(WORK+"stats/s2.rawedit.txt",'a')
     print >> outstats, "\t".join(["sample","Nreads","exclude","trimmed","passed"])
     for i in range(submitted):
         a,b,c,d = result_queue.get()
