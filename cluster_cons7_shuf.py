@@ -96,7 +96,8 @@ def cluster(vsearch, handle, ID, datatype,
         " -usersort"+\
         COV+\
         N
-    os.system(cmd)
+    #os.system(cmd)
+    subprocess.call(cmd, shell=True)
 
 
 def makeclust(handle,datatype,gid,
