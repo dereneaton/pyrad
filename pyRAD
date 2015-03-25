@@ -34,7 +34,7 @@ import cluster_cons7_shuf
 import tier2clust
 import alignable
 import loci2vcf, loci2phynex, loci2treemix
-import loci2SNP, loci2mig
+import loci2SNP, loci2mig, loci2gphocs
 #------------
 import Dtest, Dtest_5, Dtest_foil
 import createfile

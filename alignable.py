@@ -20,6 +20,7 @@ import loci2vcf
 import loci2treemix
 import loci2SNP
 import loci2mig
+import loci2gphocs
 
 
 def unstruct(amb):
@@ -770,3 +771,7 @@ def main(outgroup, minspecies, outname,
             loci2mig.make(WORK, outname, taxadict, minhits, seed)
         else:
             print "\t  ** must enter group/clade assignments for migrate-n output "
+
+    if 'f' in formats:
+        print "\tWriting gphocs file"
+        loci2gphocs.make(WORK,outname)
