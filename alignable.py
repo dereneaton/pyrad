@@ -724,7 +724,7 @@ def main(outgroup, minspecies, outname,
 
     " make other formatted files "
     if "*" in outform:
-        outform = ",".join(list("pnasvutmkg"))
+        outform = ",".join(list("pnasvutmkgf"))
     formats = outform.split(",")
 
     " make phy, nex, SNP, uSNP, structure"
@@ -734,6 +734,10 @@ def main(outgroup, minspecies, outname,
         if 'p' in formats:
             print "\twriting phylip file"
         loci2phynex.make(WORK,outname,names,longname, formats)
+
+    if 'f' in formats:
+        print "\tWriting gphocs file"
+        loci2gphocs.make(WORK,outname)
 
     if any([i in formats for i in ['u','s','k','t','g']]):
         if 's' in formats:
@@ -772,6 +776,3 @@ def main(outgroup, minspecies, outname,
         else:
             print "\t  ** must enter group/clade assignments for migrate-n output "
 
-    if 'f' in formats:
-        print "\tWriting gphocs file"
-        loci2gphocs.make(WORK,outname)
