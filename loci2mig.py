@@ -88,7 +88,7 @@ def make(WORK, outname, taxadict, minhits, seed):
 #           ["2E0","2F0","2G0","2H0"],
 #           ["3I0","3J0","3K0","3L0"] ]
 
-# taxadict = dict(zip(pops,samps))
+# taxadict = OrderedDict(zip(pops,samps))
 # minhits = [4,4,4]
 # seed = 112233
 
