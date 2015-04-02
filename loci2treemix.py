@@ -68,6 +68,14 @@ def make(WORK, outname, taxadict, minhits):
         a,b = line.split()
         SNPS[a] = b
 
+    ## reduce Taxa dict to only samples that are in the unlinkedsnps alignment
+    for key in taxa:
+        replacement = []
+        for val in taxa[key]:
+            if val in SNPS.keys():
+                replacement.append(val)
+        taxa[key] = replacement
+
     ## create a dictionary with empty lists for each taxon 
     FREQ = OrderedDict()
     for tax in taxa:
@@ -84,6 +92,7 @@ def make(WORK, outname, taxadict, minhits):
         if all(GG):
             keeps.append(snp)
 
+
     for keep in keeps:
         for tax in FREQ:
             bunch = []
@@ -92,11 +101,6 @@ def make(WORK, outname, taxadict, minhits):
                 bunch.append(alignable.unstruct(SNPS[i][keep])[1])
                 #print tax, i, SNPS[i][keep], bunch
             FREQ[tax].append("".join(bunch))
-
-    ## check that no included taxa have no data
-    # for i,j in zip(taxa,minhits):
-    #     if not FREQ[i]:
-    #         print "taxon/group ",i,"has no data shared across at least",j,"samples, it must be excluded to build treemix output"
 
     ## header
     print >>outfile, " ".join(FREQ.keys())
