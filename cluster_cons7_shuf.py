@@ -238,7 +238,7 @@ def makecons(vsearch, ID, datatype,
     fs = copy.copy(inlist)
     
     " are files gzipped ? "
-    if any(['.gz' in i[-4:] for i in FS]):
+    if any([i.endswith(".gz") for i in FS]):
         gz = ".gz"
     else:
         gz = ""
@@ -288,20 +288,24 @@ def makecons(vsearch, ID, datatype,
     " make list of random number and data "
     if seed:
         random.seed(seed)
-    source = gzip.open(WORK+'clust'+ID+'/cat.group_'+gid+".gz",'r')
-    data = [ (random.random(), line) for line in source ]
-    source.close()
-    " sort by random number "
-    data.sort()
 
+    " open file for reading consensus reads grouped together in one file "
+    source = gzip.open(WORK+'clust'+ID+'/cat.group_'+gid+".gz",'r')
+    " generator to add a random number next to every sequence "
+    data = ( (random.random(), line) for line in source )
+    " sort by the random number into a list (now stored in memory)"
+    randomized_data = sorted(data)
+    source.close()
+    
     " order by size while retaining randomization within size classes "
-    D = [line.split('    ') for _, line in data]
-    DD = ["".join([i[0]+" "*(100-len(i[0])),i[1]]) for i in D]
-    DD.sort(key=len, reverse=True)
-    k = iter(["**".join([i.split(" ")[0],i.split(" ")[-1]]) for i in DD])
+    splitlines = (line.split('    ') for _, line in randomized_data)
+    equalspacers = iter("".join([i[0]+" "*(100-len(i[0])),i[1]]) for i in splitlines)
+    orderedseqs = sorted(equalspacers, key=len, reverse=True)
+    k = iter(["**".join([i.split(" ")[0],i.split(" ")[-1]]) for i in orderedseqs])
 
     " write output to .consens_.gz file "
-    out = gzip.open(WORK+'clust'+ID+'/cat.consens_'+gid+".gz",'w')
+    ## NB: could probably speed this up
+    out = gzip.open(WORK+'clust'+ID+'/cat.consens_'+gid+".gz",'wb')
     while 1:
         try: a,b = k.next().split("**")
         except StopIteration: break
