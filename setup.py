@@ -23,7 +23,7 @@ setuptools.setup(
 
     entry_points={
             'console_scripts': [
-                'pyRAD = pyRAD:main',
+                'pyRAD = pyrad.pyRAD:main',
             ],
     },
 
