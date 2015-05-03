@@ -7,14 +7,14 @@ requirements = [
 
 setuptools.setup(
     name="pyrad",
-    version="3.0.5",
+    version="3.0.6",
     url="https://github.com/dereneaton/pyrad",
 
     author="Deren Eaton",
     author_email="deren.eaton@yale.edu",
 
     description="Assembly and analysis of RADseq data sets",
-    long_description=open('README.rst').read(),
+    long_description=open('README').read(),
 
     packages=setuptools.find_packages(),
 
@@ -23,7 +23,7 @@ setuptools.setup(
 
     entry_points={
             'console_scripts': [
-                'pyRAD = pyrad.pyRAD:main',
+                'pyrad = pyrad.pyRAD:main',
             ],
     },
 
