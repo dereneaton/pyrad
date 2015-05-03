@@ -24,6 +24,7 @@ Stable release versions can be downloaded `here <https://github.com/dereneaton/p
 
 Installation (As of v.3.0.6 and newer)
 ^^^^^^^^^^^^^^^^^
+This will create an executable script called `pyrad` that you can call from anywhere.  
 
 ::
 
@@ -34,6 +35,7 @@ Installation (As of v.3.0.6 and newer)
 
 Python requirements
 ^^^^^^^^^^^^^^^^^^^
+These will be automatically installed along side `pyrad`.
 
  * numpy
  * scipy
