@@ -18,7 +18,7 @@ Stable release versions can be downloaded `here <https://github.com/dereneaton/p
 
 
 Installation (As of v.3.0.6 and newer)
-------------------------
+^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -39,8 +39,7 @@ Example usage
 ::
 
     >>> pyrad -n  
-    new params.txt file created
-
+        new params.txt file created
 
 
     >>> pyrad -p params.txt 
