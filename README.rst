@@ -24,7 +24,7 @@ Stable release versions can be downloaded `here <https://github.com/dereneaton/p
 
 Installation (As of v.3.0.6 and newer)
 ^^^^^^^^^^^^^^^^^
-This will create an executable script called `pyrad` that you can call from anywhere.  
+Using _pip_ you can install _pyrad_ so that it can be called from anywhere on your machine:
 
 ::
 
@@ -32,6 +32,13 @@ This will create an executable script called `pyrad` that you can call from anyw
     cd pyrad
     sudo pip install .
     
+
+or alternatively, without installation you can simply call _pyrad_ with python from its location:
+
+::
+
+    python pyrad/pyRAD.py -h
+
 
 Python requirements
 ^^^^^^^^^^^^^^^^^^^
