@@ -212,9 +212,10 @@ def barmatch(C, Raws, CUT, datatype, num, maxmismatch, WORK, longB):
                 M["_"] += 1
 
 
-        "write to file every 50Kth read"
+        "write to file every 500Kth read"
         " only writes reads that match to a barcode in C by less than some N differences "
-        if not locus % 50000:
+        if not locus % 500000:
+            #print 'printing', num
             for bar in C:
                 outF1 = gzip.open(WORK+"fastq/."+C[bar]+'.temp_R1_'+str(num)+'.gz','ab')
                 if 'pair' in datatype:
@@ -287,7 +288,7 @@ def writefunc(GLOB,Parallel,Bcode,CUT,datatype,maxmismatch,WORK):
     codes = [line.strip().split() for line in codetable.readlines()]
     C = {}
     for line in codes:
-        if line[0]:
+        if line:
             C[line[1].strip().upper()] = line[0]
 
     " find longest barcode "
@@ -426,7 +427,7 @@ def main(Bcode, GLOB, CUT, datatype, Parallel, maxmismatch, WORK):
 
     " DO THE BARCODE SORTING "
     writefunc(GLOB, Parallel, Bcode, CUT, datatype, maxmismatch, WORK)
-    names = [line.split()[0] for line in open(Bcode).readlines()]
+    names = [line.split()[0] for line in open(Bcode).readlines() if line]
 
     # " remove tiny sorted temp files "
     # if len(glob.glob(GLOB)) > 1:
