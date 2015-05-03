@@ -14,7 +14,7 @@ setuptools.setup(
     author_email="deren.eaton@yale.edu",
 
     description="Assembly and analysis of RADseq data sets",
-    long_description=open('README').read(),
+    long_description=open('README.rst').read(),
 
     packages=setuptools.find_packages(),
 
