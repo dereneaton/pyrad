@@ -478,7 +478,7 @@ def main(params, quiet):
     ## do barcode sorting
     writefunc(params, quiet)
     names = [line.split()[0] for line \
-             in open(params["bcode"]).readlines() if line]
+             in open(params["bcode"]).readlines() if line.strip()]
 
     ## concatenate temp files "
     for name in names:
