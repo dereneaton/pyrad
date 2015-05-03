@@ -14,7 +14,7 @@ available `here <http://www.dereneaton.com/software/pyrad/>`_.
 Downloads
 ---------
 
-Stable release versions can be downloaded `here <https://github.com/dereneaton/pyrad/releases>`_, or clone the current development version using git:
+Stable release versions can be downloaded `here <https://github.com/dereneaton/pyrad/releases>`_, or you can clone the current development version using git:
 
 ::
 
