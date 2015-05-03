@@ -55,6 +55,3 @@ Authors
 -------
 
 `pyrad` was written by `Deren Eaton <deren.eaton@yale.edu>`_.
-
-
-
