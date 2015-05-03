@@ -1,5 +1,9 @@
 #!/usr/bin/env python2
 
+""" edits reads based on quality scores. Can be used
+to check for adapters and primers, but is not optimized 
+for all types of cutters """
+
 import multiprocessing
 import itertools
 import sys
@@ -9,249 +13,276 @@ import operator
 import gzip
 from potpour import Worker
 from sortandcheck2 import unambig
-from cluster_cons7_shuf import comp
+from cluster_cons7_shuf import fullcomp
 
 
-
-def unambar(CUT):
-    if any([i in CUT for i in list("RKYSWM")]):
-        CUTa, CUTb = unambig(CUT)
-        return [CUTa,CUTb]
+def unambar(cut):
+    """ returns both resolutions of an ambiguous cutter """
+    if any([i in cut for i in list("RKYSWM")]):
+        cuta, cutb = unambig(cut)
+        return [cuta, cutb]
     else:
         return False
 
 
-def Afilter(CUT,s,strict):
-    a = b = wheretocut = None
-    " lookfor cut site "
-    if unambar(CUT):
-        " if ambiguity in cutter "
-        CUTa,CUTb = unambar(CUT)
+def afilter(cut, seq, strict):
+    """ applies filter for primers & adapters """
+    check1 = check2 = wheretocut = None
+    ## lookfor cut site
+    if unambar(cut):
+        ## if ambiguity in cutter
+        cuta, cutb = unambar(cut)
         if strict == 2:
-            lookfor1 = CUTa+"A"
-            lookfor2 = CUTb+"A"
+            lookfor1 = cuta+"A"
+            lookfor2 = cutb+"A"
         else:
-            lookfor1 = CUTa+"AGA"
-            lookfor2 = CUTb+"AGA"
-        if lookfor1 in s:
-            a = s.rindex(lookfor1)
-        if lookfor2 in s:
-            b = s.rindex(lookfor2)
-        if (a or b):
-            wheretocut = min([i for i in [a,b] if i])
+            lookfor1 = cuta+"AGA"
+            lookfor2 = cutb+"AGA"
+        if lookfor1 in seq:
+            check1 = seq.rindex(lookfor1)
+        if lookfor2 in seq:
+            check2 = seq.rindex(lookfor2)
+        if check1 or check2:
+            wheretocut = min([i for i in [check1, check2] if i])
         else:
             wheretocut = None
     else:
         if strict == 2:
-            lookfor = CUT+"A"
+            lookfor = cut+"A"
         else:
-            lookfor = CUT+"AGA"
-        if lookfor in s:
-            wheretocut = s.rindex(lookfor)
+            lookfor = cut+"AGA"
+        if lookfor in seq:
+            wheretocut = seq.rindex(lookfor)
         else:
             wheretocut = None
                 
     if not wheretocut:
-        " look for adapter sequence "
+        ## look for adapter sequence "
         if strict == 2:
             lookfor1 = "AGATCG"
         else:
             lookfor1 = "AGATCGGA"
-        if lookfor1 in s:
-            wheretocut = s.rindex(lookfor1)-(len(CUT)+1)
+        if lookfor1 in seq:
+            wheretocut = seq.rindex(lookfor1)-(len(cut)+1)
         else:
             wheretocut = None
 
-    " look for CUT at end of seq "
+    ## look for CUT at end of seq
     if not wheretocut:
-        if CUT in s[-len(CUT)-5:]:
-            wheretocut = s.rindex(CUT)
+        if cut in seq[-len(cut)-5:]:
+            wheretocut = seq.rindex(cut)
     return wheretocut
-            
-                
 
 
-
-def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
+def rawedit(params, infile, quiet):
     """ three functions:
     (1) replaces low quality base calls with Ns,
     (2) checks for adapter sequence if strict set to 1 or 2 """
-
-    if "," in CUT:
-        CUT1,CUT2 = CUT.split(',')
+    ## WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
+    if "," in params["cut"]:
+        cut1, cut2 = params["cut"].split(',')
     else:
-        CUT1=CUT2=CUT
+        cut1 = cut2 = params["cut"]
         
-    if ".gz" in infile:
-        f = gzip.open(infile, 'r')
+    ## read in the demultiplexed reads file
+    if infile.endswith(".gz"):
+        dems = gzip.open(infile, 'r')
     else:
-        f = open(infile,'r')
-    n = str(infile.split('/')[-1]).replace("_R1.",".")
-    while n.split(".")[-1] in ["fastq","fastQ","gz","fq","FastQ"]:
-        n = n.replace('.'+n.split(".")[-1], "")
-    k = itertools.izip(*[iter(f)]*4)
+        dems = open(infile, 'r')
+
+    ## get sample name from the file name
+    fname = str(infile.split('/')[-1]).replace("_R1.", ".")
+    while fname.split(".")[-1] in ["fastq", "fastQ", 
+                                   "gz", "fq", "FastQ"]:
+        fname = fname.replace('.'+fname.split(".")[-1], "")
+
+    ## iterator that grabs 4 lines at a time
+    k = itertools.izip(*[iter(dems)]*4)
+
+    ## lists for stroring full (r) and trimmed (c) reads
     writing_r = []
     writing_c = []
 
+    ## counters
     orig = keep = keepcut = 0
-    handle = WORK+'edits/'+str(n)+".edit"
+    handle = params["work"]+'edits/'+str(fname)+".edit"
 
     while 1:
-        try: d = k.next()
-        except StopIteration: break
+        try: 
+            quart = k.next()
+        except StopIteration: 
+            break
         orig += 1 
-        SS = d[1].strip()
-    
-        ph = map(ord,d[3].strip('\n'))      
-        offset = int(Q) 
-        phred = map(lambda x:x-offset,ph)
+        iseq = quart[1].strip()   ## SS
+        qscore = [ord(i) for i in quart[3].strip('\n')]  ## ph
+        offset = int(params["Q"])
+        phred = [x-offset for x in qscore]
         seq = ["N"]*len(phred)
         for base in range(len(phred)):
-            if base >= len(CUT1):              ## don't quality check cut site
-                if phred[base] >= 20:         ## quality threshold
-                    try: seq[base] = SS[base]
+            if base >= len(cut1):              ## don't quality check cut site
+                if phred[base] >= 20:          ## quality threshold
+                    try: 
+                        seq[base] = iseq[base]
                     except IndexError:
-                        None
+                        pass
                 else:
                     seq[base] = "N"
             else:
-                if unambar(CUT1):
-                    seq[base] = unambar(CUT1)[0][base]
+                if unambar(cut1):
+                    seq[base] = unambar(cut1)[0][base]
                 else:
-                    seq[base] = CUT1[base]
-                #try: seq[base] = SS[base]
-                #except IndexError:
-                #    None
-            
+                    seq[base] = cut1[base]
+
         if not orig % 5000:
-            if trimkeep:
-                " write full length and fragment reads "
-                with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
+            if params["trimkeep"]:
+                ## write full length and fragment reads
+                with open(params["work"]+'edits/'+str(fname)+\
+                          ".edit", 'a') as outfile:
                     outfile.write("".join([z for z in writing_r]))
                     outfile.write("".join([z for z in writing_c]))
             else:
-                " write only full length reads "
-                with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
+                ## write only full length reads "
+                with open(params["work"]+'edits/'+str(fname)+\
+                          ".edit", 'a') as outfile:
                     outfile.write("".join([z for z in writing_r]))
             writing_r = []
             writing_c = []
 
-        s = "".join(seq)
+        sseq = "".join(seq)  ## s
         wheretocut1 = None
-        if strict:
-            wheretocut1 = Afilter(comp(CUT2)[::-1],s,strict)
-            s = s[:wheretocut1]
+        if params["strict"]:
+            wheretocut1 = afilter(fullcomp(cut2)[::-1],
+                                  sseq, params["strict"])
+            sseq = sseq[:wheretocut1]
 
-        if datatype == 'merged':
-            " remove extra forward base so forwards match reverse length"
-            s = s[:-1]
+        if params["datatype"] == 'merged':
+            ## remove extra forward base so forwards match reverse length
+            sseq = sseq[:-1]
 
-        if s.count("N") <= pN:             ## max allowed Ns
-            if len(s) >= max(32,trimkeep): ## if read is trimmed, must be minlen long
-                if wheretocut1:            ## if it was trimmed...
-                    writing_c.append(">"+n+"_"+str(keepcut)+"_c1"+"\n"+s+"\n")
+        ## max allowed Ns
+        if sseq.count("N") <= params["maxN"]:  
+            ## if read is trimmed, must be minlen long
+            if len(sseq) >= max(32, params["trimkeep"]): 
+                ## if it was trimmed
+                if wheretocut1:     
+                    writing_c.append(">"+fname+"_"+str(keepcut)+\
+                                     "_c1"+"\n"+sseq+"\n")
                     keepcut += 1
                 else:
-                    writing_r.append(">"+n+"_"+str(keep)+"_r1"+"\n"+s+"\n")
+                    writing_r.append(">"+fname+"_"+str(keep)+\
+                                     "_r1"+"\n"+sseq+"\n")
                     keep += 1
 
-    if trimkeep:
-        with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
+    if params["trimkeep"]:
+        with open(params["work"]+'edits/'+str(fname)+".edit", 'a') as outfile:
             outfile.write("".join([z for z in writing_r]))
             outfile.write("".join([z for z in writing_c]))
     else:
-        with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
+        with open(params["work"]+'edits/'+str(fname)+".edit", 'a') as outfile:
             outfile.write("".join([z for z in writing_r]))
     writing_r = []
     writing_c = []
 
-    f.close()
-    sys.stderr.write(".")
-    if not trimkeep:
+    dems.close()
+    if not quiet:
+        sys.stderr.write(".")
+    if not params["trimkeep"]:
         keepcut = 0
-    return [handle.split("/")[-1].replace(".edit",""),str(orig),str(keep),str(keepcut)]
+
+    return [handle.split("/")[-1].replace(".edit", ""), 
+            str(orig), str(keep), str(keepcut)]
 
 
+def main(params, fastqs, quiet):
+    """ runs the main script """
+    ##Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
 
-def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
-    print >>sys.stderr, "\tstep 2: editing raw reads \n\t",
+    if not quiet:
+        print >>sys.stderr, "\n\tstep 2: editing raw reads \n\t",
 
-    " create output directories "
-    if not os.path.exists(WORK+'stats'):
-        os.makedirs(WORK+'stats')
-    if not os.path.exists(WORK+'edits'):
-        os.makedirs(WORK+'edits')
+    ## create output directories "
+    if not os.path.exists(params["work"]+'stats'):
+        os.makedirs(params["work"]+'stats')
+    if not os.path.exists(params["work"]+'edits'):
+        os.makedirs(params["work"]+'edits')
 
-    " load up work queue "
+    ## load up work queue "
     submitted = 0
     work_queue = multiprocessing.Queue()
-    if len(glob.glob(FQs)) > 1:
-        FS = glob.glob(FQs)
+    if len(glob.glob(fastqs)) > 1:
+        ffiles = glob.glob(fastqs)  ## FS
 
-        " order files by size "
-        for i in range(len(FS)):
-            statinfo = os.stat(FS[i])
-            FS[i] = FS[i],statinfo.st_size
-        FS.sort(key=operator.itemgetter(1))
-        FS = [i[0] for i in FS][::-1]
+        ## order files by size 
+        for ffile in range(len(ffiles)):
+            statinfo = os.stat(ffiles[ffile])
+            ffiles[ffile] = ffiles[ffile], statinfo.st_size
+        ffiles.sort(key=operator.itemgetter(1))
+        ffiles = [ffile[0] for ffile in ffiles][::-1]
 
-        " submit jobs to queue "
-        for handle in FS:
-            finder = WORK+'edits/'+handle.split("/")[-1]
-            while finder.split(".")[-1] in ["fastq","fastQ","gz","fq","FastQ"]:
-                finder = finder.replace('.'+finder.split(".")[-1], "").replace("_R1","")
-            if finder+".edit" not in glob.glob(WORK+"edits/*"):
-                if os.stat(handle).st_size > 0:   ## exclude empty files
-                    args = [WORK, handle, CUT, float(pN), trimkeep, strict, Q, datatype]
-                    work_queue.put(args)
+        ## submit jobs to queue 
+        for ffile in ffiles:
+            finder = params["work"]+'edits/'+ffile.split("/")[-1]
+            while any([finder.endswith(i) for i in ["fastq", "fastQ",
+                                                    "gz", "fq", "FastQ"]]):
+                finder = finder.replace('.'+finder.split(".")[-1], "").\
+                         replace("_R1", "")
+            if finder+".edit" not in glob.glob(params["work"]+"edits/*"):
+                ## exclude empty files
+                if os.stat(ffile).st_size > 0:  
+                    work_queue.put([params, ffile, quiet])
                     submitted += 1
                 else:
-                    print "skipping",handle,", file is empty"
+                    print "skipping", ffile, ", file is empty"
             else:
                 print "\t"+finder+" already in edits/"
 
-    elif len(glob.glob(FQs)) == 1:
-        " if only one file "
-        work_queue.put([WORK, glob.glob(FQs)[0], CUT, float(pN), trimkeep, strict, Q, datatype])
+    elif len(glob.glob(fastqs)) == 1:
+        ## if only one file "
+        work_queue.put([params, glob.glob(fastqs)[0], quiet])
         submitted += 1
 
     else:
         print "\tNo demultiplexed files found. Check path."
         sys.exit()
 
-    " create a queue to pass to workers to store the results "
+    ## create a queue to pass to workers to store the results "
     result_queue = multiprocessing.Queue()
 
-    " spawn workers, give function "
+    ## spawn workers, give function "
     jobs = []
-    for i in range( min(Parallel,submitted) ):
+    for _ in range(min(params["parallel"], submitted)):
         worker = Worker(work_queue, result_queue, rawedit)
         worker.start()
         jobs.append(worker)
     for job in jobs:
         job.join()
 
+    ## collect the results off the queue "
+    outstats = open(params["work"]+"stats/s2.rawedit.txt", 'a')
+    print >> outstats, "\t".join(["sample", "Nreads", "passed",
+                                  "passed.w.trim", "passed.total"])
+    stats = []
+    for _ in range(submitted):
+        stats.append(result_queue.get())
 
-    " collect the results off the queue "
-    outstats = open(WORK+"stats/s2.rawedit.txt",'a')
-    print >> outstats, "\t".join(["sample ","Nreads","passed","passed.w.trim","passed.total"])
-    STATS = []
-    for i in range(submitted):
-        STATS.append(result_queue.get())
-
-    STATS.sort(key = lambda x: x[0])
-    for i in range(submitted):
-        a,b,c,d = STATS[i]
-        print >> outstats, "\t".join([a,b,c,d,str(int(c)+int(d))])
+    stats.sort(key=lambda x: x[0])
+    for job in range(submitted):
+        a, b, c, d = stats[job]
+        print >> outstats, "\t".join([a, b, c, d, str(int(c)+int(d))])
 
     print >>outstats, """
     Nreads = total number of reads for a sample
     passed = retained reads that passed quality filtering at full length
     passed.w.trim= retained reads that were trimmed due to detection of adapters
     passed.total  = total kept reads of sufficient length
-    note: you can set the option in params file to include trimmed reads of xx length. """
+    note: you can set the option in params file to include 
+    trimmed reads of xx length.\n"""
     outstats.close()
 
-    #" zip files to save size "
-    #for ff in glob.glob(WORK+"edits/*"):
-    #    os.system("gzip "+ff)
+
+if __name__ == "__main__":
+    PARAMS = {}
+    FASTQS = []
+    QUIET = 0
+    main(PARAMS, FASTQS, QUIET)
+    

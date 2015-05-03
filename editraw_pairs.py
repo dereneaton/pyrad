@@ -1,5 +1,7 @@
 #!/usr/bin/env python2
 
+""" filter and edit reads for paired data """
+
 import multiprocessing
 import itertools
 import sys
@@ -280,84 +282,92 @@ def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
 
 
 
-def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
+def main(params, fastqs, quiet): 
+    """ call the main script """
+    ##Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
 
-    print >>sys.stderr, "\n\tstep 2: quality filtering \n\t",
+    if not quiet: 
+        sys.stderr.write("\n\tstep 2: quality filtering \n\t")
 
-    " create output directories "
-    if not os.path.exists(WORK+'stats'):
-        os.makedirs(WORK+'stats')
-    if not os.path.exists(WORK+'edits'):
-        os.makedirs(WORK+'edits')
+    ## create output directories
+    if not os.path.exists(params["work"]+'stats'):
+        os.makedirs(params["work"]+'stats')
+    if not os.path.exists(params["work"]+'edits'):
+        os.makedirs(params["work"]+'edits')
 
-    " load up work queue "
+    ## load up work queue
     submitted = 0
     work_queue = multiprocessing.Queue()
 
-    " do not select merged or discarded reads if PEAR was used on data"
-    FQs = glob.glob(FQs)
-    fqs = [i for i in FQs if not any([j in i for j in ["discarded",".assembled."]])]
+    ## do not select merged or discarded reads if PEAR was used on data
+    fastqs = glob.glob(fastqs)
+    fastqs = [i for i in fastqs if not \
+              any([j in i for j in ["discarded", ".assembled."]])]
     
-    if len(fqs) > 1:
-        " subselect only the first reads "
-        if any([".unassembled.forward." in i for i in fqs]):
-            FS = [i for i in fqs if '.forward.' in i]
+    ## if not just one file
+    if len(fastqs) > 1:
+        ## subselect only the first reads
+        if any([".unassembled.forward." in i for i in fastqs]):
+            infiles = [i for i in fastqs if '.forward.' in i] ## FS
         else:
-            FS = [i for i in fqs if '_R1.' in i]
+            infiles = [i for i in fastqs if '_R1.' in i]
         
-        " order files by size "
-        for i in range(len(FS)):
-            statinfo = os.stat(FS[i])
-            FS[i] = FS[i],statinfo.st_size
-        FS.sort(key=operator.itemgetter(1))
-        FS = [i[0] for i in FS][::-1]
+        ## order files by size
+        for i in range(len(infiles)):
+            statinfo = os.stat(infiles[i])
+            infiles[i] = infiles[i], statinfo.st_size
+        infiles.sort(key=operator.itemgetter(1))
+        infiles = [i[0] for i in infiles][::-1]
 
-        " submit jobs to queue "
-        for handle in FS:
-            n = handle.split('/')[-1]
-            while n.split(".")[-1] in ["fastq","fastQ","gz","fq","FastQ","nomerge"]:
-                n = n.replace('.'+n.split(".")[-1], "")
-            if '.forward.' in n:
-                n = n.split(".forward")[0]
-                None
+        ## submit jobs to queue
+        for handle in infiles:
+            ## trim name endings
+            name = handle.split('/')[-1]
+            while name.split(".")[-1] in ["fastq", "fastQ", "gz", 
+                                          "fq", "FastQ", "nomerge"]:
+                name = name.replace('.'+name.split(".")[-1], "")
+            if '.forward.' in name:
+                name = name.split(".forward")[0]
             else:
-                "_".join(n.split('_R')[:-1])
-            if WORK+"edits/"+n+".edit" not in glob.glob(WORK+"edits/*"):
+                "_".join(name.split('_R')[:-1])
+
+            if params["work"]+"edits/"+name+".edit" \
+               not in glob.glob(params["work"]+"edits/*"):
                 if os.stat(handle).st_size > 0:     ## exclude empty files
-                    args = [WORK, handle, CUT, float(pN), trimkeep, strict, Q, datatype]
+                    args = [params, handle, quiet]
                     work_queue.put(args)
                     submitted += 1
                 else:
-                    print 'skipping',handle,", file is empty"
+                    print 'skipping', handle, ", file is empty"
             else:
-                print "\t"+n+'.edit'+" already in edits/"
-    elif len(fqs) == 1:
-        " if only one file "
-        work_queue.put([WORK, glob.glob(FQs)[0], CUT, float(pN), trimkeep, strict, Q, datatype])
+                print "\t"+name+'.edit'+" already in edits/"
+    elif len(fastqs) == 1:
+        ## if only one file "
+        work_queue.put([params, glob.glob(infiles)[0], quiet])
         submitted += 1
 
     else:
         print "no _paired_ de-multiplexed files found in this location."
         sys.exit()
 
-    " create a queue to pass to workers to store the results "
+    ## create a queue to pass to workers to store the results "
     result_queue = multiprocessing.Queue()
 
-    " spawn workers, give function "
+    ## spawn workers, give function "
     jobs = []
-    for i in range( min(Parallel,submitted) ):
+    for i in range(min(params["parallel"], submitted)):
         worker = Worker(work_queue, result_queue, rawedit)
         worker.start()
         jobs.append(worker)
     for job in jobs:
         job.join()
 
-
-    " collect the results off the queue "
-    outstats = open(WORK+"stats/s2.rawedit.txt",'a')
-    print >> outstats, "\t".join(["sample","Nreads","exclude","trimmed","passed"])
+    ## collect the results off the queue
+    outstats = open(params["work"]+"stats/s2.rawedit.txt", 'a')
+    print >> outstats, "\t".join(["sample", "Nreads", "exclude",
+                                  "trimmed", "passed"])
     for i in range(submitted):
-        a,b,c,d = result_queue.get()
+        a, b, c, d = result_queue.get()
         print >> outstats, "\t".join([a,b, str(int(b)-int(d)), c, d])
 
     print >>outstats, """
@@ -368,3 +378,5 @@ def main(Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
     """
     outstats.close()
 
+if __name__ == "__main__":
+    main()

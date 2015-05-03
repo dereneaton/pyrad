@@ -1,207 +1,258 @@
 #!/usr/bin/env python2
+
+""" cluster across samples using vsearch with options for 
+    hierarchical clustering """
+
 import os
 import sys
 import itertools
-import numpy
 import random
-import glob
 import subprocess
 import gzip
 import copy
-from consensdp import unhetero, uplow, breakalleles
+import cPickle as pickle
+from consensdp import unhetero, uplow
 
 
+def breakalleles(consensus):
+    """ break ambiguity code consensus seqs
+    into two alleles """
+    a1 = ""
+    a2 = ""
+    bigbase = ""
+    for base in consensus:
+        if base in tuple("RKSYWM"):
+            a,b = unhetero(base)
+            d = set([a,b])
+            a1 += uplow((a,b))
+            a2 += d.difference(uplow((a,b))).pop()
+            if not bigbase:
+                bigbase = uplow((a,b))
+        elif base in tuple("rksywm"):
+            a,b = unhetero(base)
+            d = set([a,b])
+            a2 += uplow((a,b))
+            a1 += d.difference(uplow((a,b))).pop()
+        else:
+            a1 += base
+            a2 += base
+    return a1,a2
 
-def comp(seq):
+
+def fullcomp(seq):
     """ returns complement of sequence including ambiguity characters,
     and saves lower case info for multiple hetero sequences"""
-    seq = seq.replace("A",'u')\
-             .replace('T','v')\
-             .replace('C','p')\
-             .replace('G','z')\
-             .replace('u','T')\
-             .replace('v','A')\
-             .replace('p','G')\
-             .replace('z','C')
-    seq = seq.replace('R','u')\
-             .replace('Y','v')\
-             .replace('K','p')\
-             .replace('M','z')\
-             .replace('u','Y')\
-             .replace('v','R')\
-             .replace('p','M')\
-             .replace('z','K')
-    seq = seq.replace('r','u')\
-             .replace('y','v')\
-             .replace('k','p')\
-             .replace('m','z')\
-             .replace('u','y')\
-             .replace('v','r')\
-             .replace('p','m')\
-             .replace('z','k')
+    ## this is probably not the most efficient...
+    seq = seq.replace("A", 'u')\
+             .replace('T', 'v')\
+             .replace('C', 'p')\
+             .replace('G', 'z')\
+             .replace('u', 'T')\
+             .replace('v', 'A')\
+             .replace('p', 'G')\
+             .replace('z', 'C')
+
+    seq = seq.replace('R', 'u')\
+             .replace('Y', 'v')\
+             .replace('K', 'p')\
+             .replace('M', 'z')\
+             .replace('u', 'Y')\
+             .replace('v', 'R')\
+             .replace('p', 'M')\
+             .replace('z', 'K')
+
+    seq = seq.replace('r', 'u')\
+             .replace('y', 'v')\
+             .replace('k', 'p')\
+             .replace('m', 'z')\
+             .replace('u', 'y')\
+             .replace('v', 'r')\
+             .replace('p', 'm')\
+             .replace('z', 'k')
     return seq
 
 
-def cmd_exists(cmd):
-    return subprocess.call("type " + cmd, shell=True, 
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
+def cluster(params, handle, gid, quiet):
+    """ clusters with vsearch across samples """
+    #vsearch, handle, ID, datatype,
+    #        quiet, WORK, gid, MASK):
 
-
-def cluster(vsearch, handle, ID, datatype,
-            quiet, WORK, gid, MASK):
-
-    if datatype == 'pairddrad':
-        " use first files for split clustering "
+    if params["datatype"] == 'pairddrad':
+        ## use first files for split clustering "
         if gid:
-            "hierarchical clustering save temps "
-            N = " -notmatched "+WORK+"prefix/"+handle.split("/")[-1].replace(".firsts_","._temp_")
-            U = " -userout "+WORK+"prefix/"+handle.split("/")[-1].replace(".firsts_",".u_")
+            ## hierarchical clustering save temps
+            notmatched = " -notmatched "+params["work"]+\
+                           "prefix/"+handle.split("/")[-1].\
+                           replace(".firsts_", "._temp_")
+            userout = " -userout "+params["work"]+"prefix/"+\
+                      handle.split("/")[-1].replace(".firsts_", ".u_")
         else:
-            N = ""
-            U = " -userout "+handle.replace(".firsts_",".u")
+            notmatched = ""
+            userout = " -userout "+handle.replace(".firsts_", ".u")
     else:
-        " use haplos files "
+        ## use haplos files "
         if gid:
-            "hierarchical clustering save temps "
-            N = " -notmatched "+WORK+"prefix/"+handle.split("/")[-1].replace(".haplos_","._temp_")
-            U = " -userout "+WORK+"prefix/"+handle.split("/")[-1].replace(".haplos_",".u_")
+            ## hierarchical clustering save temps
+            notmatched = " -notmatched "+params["work"]+"prefix/"+\
+                         handle.split("/")[-1].replace(".haplos_", "._temp_")
+            userout = " -userout "+params["work"]+"prefix/"+\
+                        handle.split("/")[-1].replace(".haplos_", ".u_")
         else:
-            N = ""
-            U = " -userout "+handle.replace(".haplos_",".u")
+            notmatched = ""
+            userout = " -userout "+handle.replace(".haplos_", ".u")
 
-    C = " -cluster_smallmem "+handle
-    if datatype in ['gbs','pairgbs','merged']:
-        P = " -strand both"
-        COV = " -query_cov .90 "  ## this can vary 
+    if params["datatype"] in ['gbs', 'pairgbs', 'merged']:
+        parg = " -strand both"
+        cov = " -query_cov .90 "
     else:
-        P = " -leftjust "
-        COV = " -query_cov .90 "
-    if 'vsearch' not in vsearch:
-        Q = ""
-        T = " -threads 1"
+        parg = " -leftjust "
+        cov = " -query_cov .90 "
+    if 'vsearch' not in params["vsearch"]:
+        mask = ""
+        threads = " -threads 1"
     else:
-        Q = " -qmask "+MASK
-        T = " -threads 6"
-    cmd = vsearch+\
-        C+\
-        P+\
-        Q+\
-        T+\
-        " -id "+ID+\
-        U+\
+        mask = " -qmask "+params["mask"]
+        threads = " -threads 6"
+    if quiet:
+        quietarg = " -quiet "
+    else:
+        quietarg = ""
+
+    cmd = params["vsearch"]+\
+        " -cluster_smallmem "+handle+\
+        parg+\
+        mask+\
+        threads+\
+        " -id "+params["wclust"]+\
+        userout+\
         " -userfields query+target+id+gaps+qstrand+qcov"+\
         " -maxaccepts 1"+\
         " -maxrejects 0"+\
         " -fulldp"+\
         " -usersort"+\
-        COV+\
-        N
-    #os.system(cmd)
+        cov+\
+        notmatched+\
+        quietarg
     subprocess.call(cmd, shell=True)
 
 
-def makeclust(handle,datatype,gid,
-              minmatch,WORK):
+def makeclust(params, handle, gid, minmatch):
+    """ reconstitutes clusters from .u and temp files and
+    stores consens file names to cluster numbers and dumps to a dict """
 
-    " read in cluster hits and seeds files "
+    ## locus counter
+    olddict = {}
+    locus = 1
+
+    ## read in cluster hits and seeds files
     if not gid:
-        Userout = open(handle.replace(".haplos_",".u"),'r')
-        outfile = gzip.open(handle.replace(".haplos_"+gid,".clust_"+gid+".gz"),'w')
+        userout = open(handle.replace(".haplos_", ".u"), 'r')
+        outfile = gzip.open(handle.replace(".haplos_"+gid, \
+                                           ".clust_"+gid+".gz"), 'w')
     else:
-        Userout = open(WORK+'prefix/'+handle.split("/")[-1].replace(".haplos_",".u_") ,'r')
-        nomatch = open(WORK+'prefix/'+handle.split("/")[-1].replace(".haplos_","._temp_"),'r')
-        outfile = open(WORK+'prefix/'+handle.split("/")[-1].replace(".haplos_",".seed_"),'w')
-        outfilename = WORK+'prefix/'+handle.split("/")[-1].replace(".haplos_",".seed_")
+        userout = open(params["work"]+'prefix/'+handle.split("/")[-1].\
+                                       replace(".haplos_", ".u_"), 'r')
+        nomatch = open(params["work"]+'prefix/'+handle.split("/")[-1].\
+                                       replace(".haplos_", "._temp_"), 'r')
+        outfile = open(params["work"]+'prefix/'+handle.split("/")[-1].\
+                                       replace(".haplos_", ".seed_"), 'w')
 
-    " load full fasta file into a Dic "
-    D = {}
-    if datatype == 'pairddrad':
+    ## load full fasta file into a Dic
+    consdic = {}   ## D
+    if params["datatype"] == 'pairddrad':
         if gid:
-            f = open(handle.replace(".haplos_"+gid,".firsts_"+gid))
+            infile = open(handle.replace(".haplos_"+gid, ".firsts_"+gid))
         else:
-            f = gzip.open(handle.replace(".haplos_"+gid,".consens_"+gid+".gz"))
+            infile = gzip.open(handle.replace(".haplos_"+gid,
+                                              ".consens_"+gid+".gz"))
     else:
-        f = gzip.open(handle.replace(".haplos_"+gid,".consens_"+gid+".gz"))
+        infile = gzip.open(handle.replace(".haplos_"+gid, 
+                                          ".consens_"+gid+".gz"))
 
-    L = itertools.izip(*[iter(f)]*2)
+    duo = itertools.izip(*[iter(infile)]*2)  ## L
     while 1:
-        try: a,b = L.next()
-        except StopIteration: break
-        D[a.strip()] = b.strip()
-    f.close()
+        try: 
+            name, seq = duo.next()
+        except StopIteration:
+            break
+        consdic[name.strip()] = seq.strip()
+    infile.close()
 
-    " load .u info into a Dic "
-    U = {}
-    for line in [line.split("\t") for line in Userout.readlines()]:
-        if ">"+line[1] in U:
-            U[">"+line[1]].append([">"+line[0],line[4]])
+    ## load .u match info into a Dic
+    udic = {}
+    for line in [line.split("\t") for line in userout.readlines()]:
+        if ">"+line[1] in udic:
+            udic[">"+line[1]].append([">"+line[0], line[4]])
         else:
-            U[">"+line[1]] = [[">"+line[0],line[4]]]
-
-    " if tier 1 of hierarchical clustering "
+            udic[">"+line[1]] = [[">"+line[0], line[4]]]
+    
+    ## if tier 1 of hierarchical clustering "
     if gid:
         if int(minmatch) == 1:
-            " no reduction, write seeds only "
-            # if datatype == 'pairddrad':
-            #     singles = itertools.izip(*[iter(open(handle.replace(".haplos_",".firsts_")))]*2)
-            # else:
-            #     singles = itertools.izip(*[iter(open(handle))]*2)
+            ## no reduction, write seeds only "
             singles = nomatch.read().split(">")[1:]
             for i in singles:
                 i = i.split("\n")[0]+"\n"+"".join(i.split("\n")[1:]).upper()
-                #print ">"+i+"\n//"
                 print >>outfile, ">"+i+"\n//"
-                #print "//\n".join(i)
-                #outfile.write("//\n".join(i))
-            #    i,j = i.split('\n')[0], "\n".join(i.split('\n')[1:])
-            #    outfile.write("//\n".join(i+j))
+                #print >>outfile, str(locus)
             del singles
-            #outfile.write("//\n".join(LLL))
-            # LLL = []
-            # while 1:
-            #     try: a,b = singles.next()
-            #     except StopIteration: break
-            #     LLL.append(a+b)
-            #outfile.write("//\n".join(LLL))
-            #del LLL
         else:       
-            for key,values in U.items():
+            for key, values in udic.items():
                 ## reduction, only write seed if minimum hits reached
                 if (len(values)+1) >= int(minmatch):
                     ## fix for if short seqs are excluded during clustering
-                    if D.get(key):
-                        seq = key+"\n"+D[key]+"\n"
+                    if consdic.get(key):
+                        seq = key+"\n"+consdic[key]+"\n"
                         seq += "//\n"
+                        #seq += str(locus)+"\n"
                         outfile.write(seq)
-
     else:
-        " map sequences to clust file in order "
+        ## map sequences to clust file in order
         seq = ""
-        for key,values in U.items():
-            if D.get(key):   ## fix for if short seqs are excluded during clustering
-                seq = key+"\n"+D[key]+'\n'
-                S = [i[0] for i in values]
-                R = [i[1] for i in values]
-                for i in range(len(S)):
-                    if D.get(S[i]):   ## testing as fix for removed short reads...
-                        if R[i] == "+":
-                            seq += S[i] + '\n' + D[S[i]] + "\n"
+        for key, values in udic.items():
+            if consdic.get(key):   
+                ## fix for if short seqs are excluded during clustering
+                seq = key+"\n"+consdic[key]+'\n'
+                names = [i[0] for i in values]
+                orient = [i[1] for i in values]
+                for i in range(len(names)):
+                    if consdic.get(names[i]):  
+                        if orient[i] == "+":
+                            seq += names[i]+'\n'+consdic[names[i]]+"\n"
                         else:
-                            seq += S[i] + '\n' + comp(D[S[i]][::-1]) + "\n"
-                seq += "//\n"
+                            seq += names[i]+'\n'+\
+                                   fullcomp(consdic[names[i]][::-1])+"\n"
+                seq += str(locus)+"\n//\n"
                 outfile.write(seq)
-    outfile.close()
-    Userout.close()
-    if gid: nomatch.close()
 
+                ## store names in locus number
+                ## with ">" char trimmed off
+                #print 'names,'
+                #print names, key
+                olddict[locus] = [i[1:] for i in names+[key]]
+                #print locus
+                #print len(names+[key]), names+[key]
+                locus += 1
+
+    outfile.close()
+    userout.close()
+    if gid:
+        nomatch.close()
+
+    ## dump the locus2name map
+    pickleout = gzip.open(handle.replace("haplos_", "loc2name.map"), 'wb')
+    pickle.dump(olddict, pickleout)
+    pickleout.close()
 
 
 def splitter(handle):
+    """ splits first reads from second reads for pairddrad data
+        for split clustering method """
     infile = open(handle)
-    if os.path.exists(handle.replace(".haplos",".firsts")):
-        os.remove(handle.replace(".haplos",".firsts"))
+    if os.path.exists(handle.replace(".haplos", ".firsts")):
+        os.remove(handle.replace(".haplos", ".firsts"))
         
-    orderfirsts = open(handle.replace(".haplos",".firsts"),'w')
+    orderfirsts = open(handle.replace(".haplos", ".firsts"), 'w')
     dp = itertools.izip(*[iter(infile)]*2)
     ff = []
     cnts = 0
@@ -209,151 +260,174 @@ def splitter(handle):
         n,s = d
         ## checking fix to pairddrad splitting problem...
         ## backwards compatible with pyrad v2
-        s1 = s.replace("X","x").replace("x","n").split("nn")[0]
+        s1 = s.replace("X", "x").replace("x", "n").split("nn")[0]
         ff.append(n+s1+"\n")
         cnts += 1
     orderfirsts.write("".join(ff))
     orderfirsts.close()
-    return handle.replace(".haplos",".firsts")
+    return handle.replace(".haplos", ".firsts")
 
 
 
-def makecons(vsearch, ID, datatype, 
-             outg, seed, gid, minmatch, inlist,
-             WORK, quiet, outhandle):
+def makecons(params, inlist, outhandle, gid, minhit, quiet):
+    """ make the concatenated consens files to imput to vsearch"""
 
-    " find usearch"
-    if not cmd_exists(vsearch):
-        print "\tcannot find usearch (or vsearch), edit path in param file"
-        sys.exit()
+    ## make list of consens files but cats already made
+    consfiles = [i for i in inlist if "/cat.cons" not in i]
+    consfiles = [i for i in consfiles if "/cat.group" not in i]
+    if not consfiles:
+        sys.exit("no consens files found")
 
-    " make list of consens files "
-    FS = [i for i in inlist if "/cat.cons" not in i]
-    FS = [i for i in FS if "/cat.group" not in i]
-    if not FS:
-        print "no consens files found"
-        sys.exit()
-
-    " and a list including outgroups "
-    fs = copy.copy(inlist)
+    ##  make a copy list that will not have outgroups excluded
+    conswithouts = copy.copy(inlist)
     
-    " are files gzipped ? "
-    if any([i.endswith(".gz") for i in FS]):
-        gz = ".gz"
-    else:
-        gz = ""
+    ##are files gzipped ?
+    gzp = ""
+    if any([i.endswith(".gz") for i in consfiles]):
+        gzp = ".gz"
 
-    " remove previous files if present "
-    if os.path.exists(WORK+'clust'+ID+'/cat.consens_'+gid+gz):
-        os.remove(WORK+'clust'+ID+'/cat.consens_'+gid+gz)
-    if os.path.exists(WORK+'clust'+ID+'/cat.group_'+gid+gz):
-        os.remove(WORK+'clust'+ID+'/cat.group_'+gid+gz)
+    ## remove previous files if present "
+    check = params["work"]+'clust'+params["wclust"]+'/cat.consens_'+gid+gzp
+    if os.path.exists(check):
+        os.remove(check)
+    check = params["work"]+'clust'+params["wclust"]+'/cat.group_'+gid+gzp
+    if os.path.exists(check):
+        os.remove(check)
 
-
-    " remove outgroup sequences, add back in later to bottom after shuffling "
-    if outg:
-        outgroup = outg.strip().split(",")
+    ## remove outgroup sequences, add back in later to bottom after shuffling "
+    outgroup = ""
+    if params["outgroup"]:
+        outgroup = params["outgroup"].strip().split(",")
         if len(outgroup) > 1:
-            for s in outgroup:
-                if WORK+"clust"+ID+"/"+s+".consens"+gz in FS:
-                    FS.remove(WORK+"clust"+ID+"/"+s+".consens"+gz)
+            for samp in outgroup:
+                check = params["work"]+"clust"+params["wclust"]+\
+                        "/"+samp+".consens"+gzp
+                if check in consfiles:
+                    consfiles.remove(check)
         else:
-            outgroup = WORK+"clust"+ID+"/"+outg+".consens"+gz
-            if outgroup in FS:
-                FS.remove(outgroup)
+            outgroup = params["work"]+"clust"+params["wclust"]+"/"+\
+                       params["outgroup"]+".consens"+gzp
+            if outgroup in consfiles:
+                consfiles.remove(outgroup)
                 
-    " create file with consens seqs from all taxa in list "
-    out = gzip.open(WORK+'clust'+ID+'/cat.group_'+gid+gz,'w')
+    ## output file for consens seqs from all taxa in consfiles list
+    out = gzip.open(params["work"]+'clust'+params["wclust"]+\
+                    '/cat.group_'+gid+gzp, 'w')
 
-    for qhandle in FS:
-        if gz:
-            f = gzip.open(qhandle)
+    ## iterate over files and...
+    for qhandle in consfiles:
+        if gzp:
+            consfile = gzip.open(qhandle)
         else:
-            f = open(qhandle)
-        k = itertools.izip(*[iter(f)]*2)
+            consfile = open(qhandle)
+        duo = itertools.izip(*[iter(consfile)]*2)
         while 1:
-            try: a = k.next()
-            except StopIteration: break
-            print >>out, a[0].strip()+"    "+a[1].strip()
-        f.close()
+            try: 
+                itera = duo.next()
+            except StopIteration: 
+                break
+            print >>out, itera[0].strip()+"    "+itera[1].strip()
+        consfile.close()
     out.close()
 
-    " message to shell "
-    if gid:
-        sys.stderr.write('\n\tstep 6: clustering across '+str(len(FS))+' samples at '+`ID`+\
-                         ' similarity \n\tfor group ('+str(gid)+') retaining seeds w/ minimum of '+str(minmatch)+' hits\n\n')
-    else:
-        sys.stderr.write('\n\tstep 6: clustering across '+str(len(FS))+' samples at '+`ID`+' similarity \n\n')
+    ## message to shell
+    if not quiet:
+        if gid:
+            sys.stderr.write('\n\tstep 6: clustering across '+\
+                             str(len(consfiles))+\
+                             " samples at "+params["wclust"]+" similarity "+
+                             "\n\tfor group ("+str(gid)+") retaining seeds "+\
+                             "w/ minimum of "+str(minhit)+\
+                             " hits\n\n")
+        else:
+            sys.stderr.write('\n\tstep 6: clustering across '+\
+                             str(len(consfiles))+\
+                             ' samples at '+params["wclust"]+\
+                             ' similarity \n\n')
 
-    " make list of random number and data "
-    if seed:
-        random.seed(seed)
+    ## make list of random number and data
+    if params["seed"]:
+        random.seed(params["seed"])
 
-    " open file for reading consensus reads grouped together in one file "
-    source = gzip.open(WORK+'clust'+ID+'/cat.group_'+gid+".gz",'r')
-    " generator to add a random number next to every sequence "
-    data = ( (random.random(), line) for line in source )
-    " sort by the random number into a list (now stored in memory)"
+    ## open file for reading consensus reads grouped together in one file
+    source = gzip.open(params["work"]+'clust'+params["wclust"]+\
+                       '/cat.group_'+gid+".gz", 'r')
+
+    ## generator to add a random number next to every sequence
+    data = ((random.random(), line) for line in source)
+
+    ## sort by the random number into a list (now stored in memory)
     randomized_data = sorted(data)
     source.close()
     
-    " order by size while retaining randomization within size classes "
+    ## order by size while retaining randomization within size classes
     splitlines = (line.split('    ') for _, line in randomized_data)
-    equalspacers = iter("".join([i[0]+" "*(100-len(i[0])),i[1]]) for i in splitlines)
+    equalspacers = iter("".join([i[0]+" "*(100-len(i[0])), i[1]]) \
+                        for i in splitlines)
     orderedseqs = sorted(equalspacers, key=len, reverse=True)
-    k = iter(["**".join([i.split(" ")[0],i.split(" ")[-1]]) for i in orderedseqs])
+    nitera = iter(["**".join([i.split(" ")[0], i.split(" ")[-1]]) \
+                         for i in orderedseqs])
 
-    " write output to .consens_.gz file "
+    ## write output to .consens_.gz file
     ## NB: could probably speed this up
-    out = gzip.open(WORK+'clust'+ID+'/cat.consens_'+gid+".gz",'wb')
+    out = gzip.open(params["work"]+'clust'+params["wclust"]+\
+                    '/cat.consens_'+gid+".gz", 'wb')
     while 1:
-        try: a,b = k.next().split("**")
-        except StopIteration: break
-        print >>out, a+'\n'+b.strip()
-
+        try:
+            name, seq = nitera.next().split("**")
+        except StopIteration: 
+            break
+        print >>out, name+'\n'+seq.strip()
     
-    """ add outgroup taxa back onto end of file."""
-    if outg:
-        " append to existing consens_ file "
-        outgroup = outg.strip().split(',')
+    ##  add outgroup taxa back onto end of file.
+    ## append to existing consens_file
+    if outgroup:
         if len(outgroup) > 1:
-            for s in outgroup:
-                xoutg = WORK+"clust"+ID+"/"+s+".consens.gz"
-                if xoutg in fs:
-                    f = gzip.open(xoutg)
-                    k = itertools.izip(*[iter(f)]*2)
+            for samp in outgroup:
+                xoutg = params["work"]+"clust"+\
+                        params["wclust"]+"/"+samp+".consens.gz"
+                if xoutg in conswithouts:
+                    oreads = gzip.open(xoutg)
+                    duo = itertools.izip(*[iter(oreads)]*2)
                     while 1:
-                        try: a = k.next()
-                        except StopIteration: break
-                        print >>out, a[0].strip()+"\n"+a[1].strip()
-                    f.close()
+                        try: 
+                            oitera = duo.next()
+                        except StopIteration:
+                            break
+                        print >>out, oitera[0].strip()+"\n"+\
+                                     oitera[1].strip()
+                    oreads.close()
         elif len(outgroup) == 1:
-            xoutg = WORK+"clust"+ID+"/"+outgroup[0]+".consens.gz"
-            if xoutg in fs:
-                f = gzip.open(xoutg)
-                k = itertools.izip(*[iter(f)]*2)
+            xoutg = params["work"]+"clust"+params["wclust"]+\
+                    "/"+outgroup[0]+".consens.gz"
+            if xoutg in conswithouts:
+                oreads = gzip.open(xoutg)
+                duo = itertools.izip(*[iter(oreads)]*2)
                 while 1:
-                    try: a = k.next()
-                    except StopIteration: break
-                    print >>out, a[0].strip()+"\n"+a[1].strip()
-                f.close()
+                    try:
+                        oitera = duo.next()
+                    except StopIteration:
+                        break
+                    print >>out, oitera[0].strip()+\
+                                 "\n"+oitera[1].strip()
+                oreads.close()
         else:
-            None
+            pass
     out.close()        
 
+    ## convert ambiguity codes into a sampled haplotype for any sample
+    ## to use for clustering, but save ambiguities for later
 
-    """ convert ambiguity codes into a sampled haplotype for any sample
-    to use for clustering, but save ambiguities for later """
+    ## output file
+    outhaplos = open(outhandle, 'w')
 
-    " output file"
-    outhaplos = open(outhandle,'w')
-
-    " input file "
-    infile = gzip.open(WORK+"clust"+ID+"/cat.consens_"+gid+".gz")
+    ## input file
+    infile = gzip.open(params["work"]+"clust"+params["wclust"]+\
+                       "/cat.consens_"+gid+".gz")
     lines = iter(infile.readlines())
     infile.close()
     
-    " write to haplo files in fasta format "
+    ## write to haplo files in fasta format
     writinghaplos = []
 
     for line in lines:
@@ -366,26 +440,27 @@ def makecons(vsearch, ID, datatype,
     outhaplos.close()
 
 
-def main(vsearch, ID, datatype, 
-         outg, seed, gid, minmatch, inlist,
-         WORK, MASK, quiet):
+def main(params, inlist, gid, group, minhit, quiet):
+    """ setup to call functions """
 
-    outhandle = WORK+"clust"+ID+"/cat.haplos_"+gid
+    ## make outhandle name, ... why do I need gid?
+    outhandle = params["work"]+"clust"+params["wclust"]+\
+                "/cat.haplos_"+gid
 
-    makecons(vsearch,ID,datatype,
-             outg,seed,gid,minmatch,
-             inlist,WORK,quiet,outhandle)
+    ## make 
+    makecons(params, inlist, outhandle, gid, minhit, quiet) 
 
-    if datatype == 'pairddrad':
+    if params["datatype"] == 'pairddrad':
+        ## split first from second reads
         splithandle = splitter(outhandle)
-        cluster(vsearch,splithandle,ID,datatype,quiet,WORK, gid, MASK)
+        cluster(params, splithandle, gid, quiet)
     else:
-        cluster(vsearch,outhandle,ID,datatype,quiet,WORK, gid, MASK)
+        cluster(params, outhandle, gid, quiet)
 
-    " remake clusters with .haplos, .u, and .temp files"
-    makeclust(outhandle,datatype,gid,minmatch,WORK)
+    ## make clusters with .haplos, .u, and .temp files"
+    makeclust(params, outhandle, gid, minhit)
 
-
-
+if __name__ == "__main__":
+    main()
 
 

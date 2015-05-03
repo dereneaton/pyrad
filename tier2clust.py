@@ -1,15 +1,13 @@
 #!/usr/bin/env python2
 
+""" used in hierarchical clustering """
+
 import os
 import sys
 import itertools
-import numpy
 import random
 import glob
-import subprocess
-import pickle
 import gzip
-from cluster_cons7_shuf import comp
 
 
 def cluster(UCLUST, ID, datatype, WORK, MASK):

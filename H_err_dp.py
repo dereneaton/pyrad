@@ -1,5 +1,7 @@
 #!/usr/bin/env python2
 
+""" jointly infers heterozygosity and error rate from stacked sequences """
+
 import scipy.stats
 import scipy.optimize
 import numpy
@@ -11,308 +13,313 @@ import os
 import gzip
 from potpour import Worker
 
+try:
+    from collections import OrderedDict, Counter
+except ImportError:
+    from ordereddict import OrderedDict, Counter
 
 
-def makeP(N):
-    """ returns a list of freq. for ATGC"""
-    sump = sum([sum(i) for i in N])
-    try: p1 = sum([float(i[0]) for i in N])/sump
-    except ZeroDivisionError: p1 = 0.0
-    try: p2 = sum([float(i[1]) for i in N])/sump
-    except ZeroDivisionError: p2 = 0.0
-    try: p3 = sum([float(i[2]) for i in N])/sump
-    except ZeroDivisionError: p3 = 0.0
-    try: p4 = sum([float(i[3]) for i in N])/sump
-    except ZeroDivisionError: p4 = 0.0
-    return [p1,p2,p3,p4]
+def get_freqs(stack):
+    """ returns a list as frequencies for ATGC"""
+    sump = sum([sum(cc.values()) for cc in stack])
+    #sump = sum([sum(i) for i in site])
+    totalcount = Counter()
+    for stackcount in stack:
+        totalcount += stackcount
+    return [totalcount["A"]/float(sump),
+            totalcount["T"]/float(sump),
+            totalcount["G"]/float(sump),
+            totalcount["C"]/float(sump)]
 
 
-def L1(E,P,N):
+def likelihood1(errors, base_frequencies, uniqstack):
     """probability homozygous"""
-    h = []
-    s = sum(N)
-    for i,l in enumerate(N):
-        p = P[i]
-        b = scipy.stats.binom.pmf(s-l,s,E)
-        h.append(p*b)
-    return sum(h)
+    homo = []
+    uniqstackl = [int(i) for i in uniqstack[1:-1].strip().split(',')]
+    total = sum(uniqstackl)
+    for num, thisbase in enumerate(uniqstackl):
+        p = base_frequencies[num]
+        b = scipy.stats.binom.pmf(total-thisbase, total, errors)
+        homo.append(p*b)
+    return sum(homo)
 
 
-def L2(E,P,N):
+def likelihood2(errors, base_frequencies, uniqstack):
     """probability of heterozygous"""
-    h = []
-    s = sum(N)
-    for l,i in enumerate(N):
-        for j,k in enumerate(N):
-            if j>l:
-                one = 2.*P[l]*P[j]
-                two = scipy.stats.binom.pmf(s-i-k,s,(2.*E)/3.)
-                three = scipy.stats.binom.pmf(i,k+i,0.5)
-                four = 1.-(sum([q**2. for q in P]))
-                h.append(one*two*(three/four))
-    return sum(h)
+    hetero = []
+    uniqstackl = [int(i) for i in uniqstack[1:-1].strip().split(',')]    
+    total = sum(uniqstackl)
+    for num, thisbase in enumerate(uniqstackl):
+        for j, k in enumerate(uniqstackl):
+            if j > num:
+                one = 2.*base_frequencies[num]*base_frequencies[j]
+                two = scipy.stats.binom.pmf(total-thisbase-k, 
+                                            total,
+                                            (2.*errors)/3.)
+                three = scipy.stats.binom.pmf(thisbase, k+thisbase, 0.5)
+                four = 1.-(sum([q**2. for q in base_frequencies]))
+                hetero.append(one*two*(three/four))
+    return sum(hetero)
 
 
-def totlik(E,P,H,N):
-    """ total probability """
-    lik = ((1-H)*L1(E,P,N)) + (H*L2(E,P,N))
-    return lik
-
-def LL(x0,P,Tab):
+def get_diploid_lik(starting_params, base_frequencies, tabled_stacks):
     """ Log likelihood score given values [H,E] """
-    H = x0[0]
-    E = x0[1]
-    L = []
-    if (H <= 0.) or (E <= 0.):
-        r = numpy.exp(100)
+    hetero = starting_params[0]
+    errors = starting_params[1]
+    listofliks = []
+    if (hetero <= 0.) or (errors <= 0.):
+        score = numpy.exp(100)
     else:
-        for i in Tab:
-            ll = totlik(E,P,H,i[0])
-            if ll > 0:
-                L.append(i[1] * numpy.log(ll))
-        r = -sum(L)
-        #print "\t".join(map(str,[r, H, E]))
-    return r
+        for uniqstack in tabled_stacks:
+            loglik = ((1.-hetero)*\
+                     likelihood1(errors, base_frequencies, uniqstack))+\
+                     (hetero*likelihood2(errors, base_frequencies, uniqstack))
+            if loglik > 0:
+                listofliks.append(tabled_stacks[uniqstack]*numpy.log(loglik))
+        score = -sum(listofliks)
+    return score
 
 
-def LL_haploid(E,P,Tab):
-    """ Log likelihood score given values [H,E] """
-    H = 0.
-    L = []
-    if (E <= 0.):
-        r = numpy.exp(100)
+def get_haploid_lik(errors, base_frequencies, tabled_stacks):
+    """ Log likelihood score given values [E] """
+    hetero = 0.
+    listofliks = []
+    if errors <= 0.:
+        score = numpy.exp(100)
     else:
-        for i in Tab:
-            ll = totlik(E,P,H,i[0])
-            if ll > 0:
-                L.append(i[1] * numpy.log(ll))
-        r = -sum(L)
-        #print "\t".join(map(str,[r, H, E]))
-    return r
+        for uniqstack in tabled_stacks:
+            loglik = ((1.-hetero)*\
+                     likelihood1(errors, base_frequencies, uniqstack))+\
+                     (hetero*likelihood2(errors, base_frequencies, uniqstack))
+            if loglik > 0:
+                listofliks.append(tabled_stacks[uniqstack]*numpy.log(loglik))
+        score = -sum(listofliks)
+    return score
 
 
-
-def table_c(N):
+def table_c(stack):
     """ makes a dictionary with counts of base counts [x,x,x,x]:x,
-    speeds up Likelihood calculation"""
-    Tab = {}
-    k = iter(N)
-    while 1:
-        try:
-            d = k.next()
-        except StopIteration: break
-        if tuple(d) in Tab:
-            Tab[tuple(d)] += 1
-        else:
-            Tab[tuple(d)] = 1
-    L = []
-    for i,j in Tab.items():
-        [i,j]
-        L.append([i,j])
-    return [i for i in L if (0,0,0,0) not in i]
+        greatly speeds up Likelihood calculation"""
+    countedstacks = []
+    for stackcount in stack:
+        countedstacks.append(str([stackcount["A"],
+                                  stackcount["T"],
+                                  stackcount["G"],
+                                  stackcount["C"]]))
+    return Counter(countedstacks)
 
 
-def stack(D):
-    """
-    from list of bases at a site D,
-    returns an ordered list of counts of bases
-    """
-    L = len(D)
-    counts = []
-    for i in range(len(D[0])):
-        A=C=T=G=N=S=0
-        for nseq in range(L):
-            A += D[nseq][i].count("A")
-            C += D[nseq][i].count("C")
-            T += D[nseq][i].count("T")
-            G += D[nseq][i].count("G")
-            N += D[nseq][i].count("N")
-            S += D[nseq][i].count("-")
-        counts.append( [[A,C,T,G],N,S] )
-    return counts
-
-
-
-def consensus(f, minsamp, CUT1, CUT2, datatype):
+def consensus(params, handle, cut1, cut2):
     """ makes a list of lists of reads at each site """
-    f = gzip.open(f)
-    k = itertools.izip(*[iter(f)]*2)
-    L = []
-    locus = 0
+    #f, minsamp, CUT1, CUT2, datatype):
+    infile = gzip.open(handle)
+    duo = itertools.izip(*[iter(infile)]*2)
+    stacked = []
     while 1:
         try:
-            first = k.next()
-        except StopIteration: break
-        itera = [first[0],first[1]]
-        fname = first[0]
-        S = []
+            first = duo.next()
+        except StopIteration:
+            break
+        itera = [first[0], first[1]]
+        thisstack = []
         rights = []
         lefts = []
         leftjust = rightjust = None
         while itera[0] != "//\n":
-            nreps = int(itera[0].strip().split(";")[1].replace("size=",""))
+            nreps = int(itera[0].strip().split(";")[1].replace("size=", ""))
 
-            " record left and right most for cutting if gbs merge data "
-            if datatype in ['mergegbs','gbs']:
+            ## record left and right most for cutting if gbs merge data "
+            if params["datatype"] in ['merged', 'gbs', 'pairgbs']:
                 if itera[0].strip().split(";")[-1] == "":
-                    leftjust = itera[1].index([i for i in itera[1] if i not in list("-N")][0])
-                    rightjust = itera[1].rindex([i for i in itera[1] if i not in list("-N")][0])
-                lefts.append(itera[1].index([i for i in itera[1] if i not in list("-N")][0]))
-                rights.append(itera[1].rindex([i for i in itera[1] if i not in list("-N")][0]))
+                    leftjust = itera[1].index([i for i in itera[1] \
+                                        if i not in list("-N")][0])
+                    rightjust = itera[1].rindex([i for i in itera[1] \
+                                        if i not in list("-N")][0])
+                lefts.append(itera[1].index([i for i in itera[1] \
+                                      if i not in list("-N")][0]))
+                rights.append(itera[1].rindex([i for i in itera[1] \
+                                        if i not in list("-N")][0]))
 
-            " append sequence * number of dereps "
-            for i in range(nreps):
-                S.append(tuple(itera[1].strip()))
-            itera = k.next()
+            ## append sequence * number of dereps
+            for _ in range(nreps):
+                thisstack.append(tuple(itera[1].strip()))
+            itera = duo.next()
 
-        " trim off overhang edges of gbs reads "
-        if datatype in ['mergegbs','gbs']:
+        ## trim off overhang edges of gbs reads "
+        if params["datatype"] in ['merged', 'gbs', 'pairgbs']:
             if any([i < leftjust for i in lefts]):
                 rightjust = min(rights)
             if any([i < rightjust for i in rights]):
                 leftjust = max(lefts)
 
-            for s in range(len(S)):
+            for seq in range(len(thisstack)):
                 if rightjust:
-                    S[s] = S[s][leftjust:rightjust+1]
+                    thisstack[seq] = thisstack[seq][leftjust:rightjust+1]
                 if leftjust:
-                    S[s] = S[s][leftjust:rightjust+1] ## +1?
+                    thisstack[seq] = thisstack[seq][leftjust:rightjust+1]
 
-        " trim off restriction sites from end/s "
-        if datatype in ['merged','pairddrad','pairgbs','gbs']:
-            for s in range(len(S)):
-                S[s] = S[s][len(CUT1):-(len(CUT2)+1)]
+        ## trim off restriction sites from end/s
+        if params["datatype"] in ['merged', 'pairddrad', 'pairgbs', 'gbs']:
+            for seq in range(len(thisstack)):
+                thisstack[seq] = thisstack[seq][len(cut1):-(len(cut2)+1)]
         else:
-            for s in range(len(S)):
-                S[s] = S[s][len(CUT1):]
-            
-        if len(S) >= minsamp:
-            " make list for each site in sequences "
-            res = stack(S)
-            " exclude sites with indels "
-            L += [i[0] for i in res if i[2] == 0]      
-            locus += 1
-    return L
+            for seq in range(len(thisstack)):
+                thisstack[seq] = thisstack[seq][len(cut1):]
+        
+        if len(thisstack) >= params["minsamp"]:
+            arrayed = numpy.array(thisstack)
+            ## make list for each site in sequences
+            res = [Counter(seq) for seq in arrayed.T]
+            ## exclude sites with indels
+            stacked += [i for i in res if not i.has_key("-")]
+    return stacked
 
 
 
+def optim(params, handle, cut1, cut2, quiet):
+    """ fun scipy optimize to find best parameters"""
+    ##WORK,handle, minsamp, CUT1, CUT2, datatype, haplos):
+    name = handle.split("/")[-1].replace(".clustS.gz", "")
 
+    ## make a list of Counter objects for each site in each stack
+    stacked = consensus(params, handle, cut1, cut2)
 
-def optim(WORK,handle, minsamp, CUT1, CUT2, datatype, haplos):
-    name = handle.split("/")[-1].replace(".clustS.gz","")
-    D = consensus(handle, minsamp, CUT1, CUT2, datatype)
-    P = makeP(D)
-    Tab = table_c(D)
-    del D
-    #H,E = scipy.optimize.fmin(LL,x0,(P,Tab),maxiter=500,maxfun=200,ftol=0.0001,disp=False,full_output=False)
-    if haplos == 1:
-        x0 = [0.001]
-        H = 0.
-        E = scipy.optimize.fmin(LL_haploid,x0,(P,Tab),disp=False,full_output=False)
+    ## get base frequencies
+    base_frequencies = get_freqs(stacked)
+
+    ## get tabled counts of base patterns
+    tabled_stacks = table_c(stacked)
+    del stacked
+
+    ## if data are haploid fix H to 0
+    if params["haplos"] == 1:
+        starting_params = [0.001]
+        hetero = 0.
+        errors = scipy.optimize.fmin(LL_haploid, 
+                                starting_params,
+                                (base_frequencies, tabled_stacks),
+                                disp=False,
+                                full_output=False)
     else:
-        x0 = [0.01,0.001]
-        H,E = scipy.optimize.fmin(LL,x0,(P,Tab),disp=False,full_output=False)
-    del Tab
-    outfile = open(WORK+"stats/."+name+".temp",'w')
-    outfile.write("\t".join([name.strip(".gz"),str(round(H,8))[0:10],str(round(E,8))[0:10],"\n"]))
+        starting_params = [0.01, 0.001]
+        hetero, errors = scipy.optimize.fmin(get_diploid_lik,
+                                             starting_params,
+                                             (base_frequencies, tabled_stacks),
+                                             disp=False,
+                                             full_output=False)
+    outfile = open(params["work"]+"stats/."+name+".temp", 'w')
+    outfile.write("\t".join([name.strip(".gz"),
+                             str(round(hetero, 8))[0:10],
+                             str(round(errors, 8))[0:10],
+                             "\n"]))
     outfile.close()
-    sys.stderr.write(".")
+    if not quiet:
+        sys.stderr.write(".")
 
 
+def main(params, quiet, mindepth):
+    """ calls the main functions """
 
+    ## assign tempmindepth to params
+    params["mindepth"] = mindepth
 
-def main(Parallel,ID,minsamp,subset,haplos,WORK,CUT,datatype):
-    sys.stderr.write("\n\tstep 4: estimating error rate and heterozygosity\n\t")
+    ##Parallel,ID,minsamp,subset,haplos,WORK,CUT,datatype):
+    if not quiet:
+        sys.stderr.write("\n\tstep 4: estimating error rate "+\
+                         "and heterozygosity\n\t")
 
-    " find clust.xx directory "
-    if not os.path.exists(WORK+'clust'+ID):
-        print  "\terror: could not find "+WORK+"clust"+str(ID)+"/ directory,"+ \
-                "\n\t\tif you changed the clustering threshold you must transfer *.clustS"+ \
-                "\n\t\tfiles to a new directory named clust.xx with xx replaced by new clustering threshold"
-        sys.exit()
-
+    ## find clust.xx directory
+    if not os.path.exists(params["work"]+'clust'+params["wclust"]):
+        sys.exit("\n\terror: could not find "+params["work"]+"clust"+\
+                            str(params["wclust"])+"/ directory,"+ \
+                            "\n\t\tif you changed the clustering threshold"+\
+                            " you must transfer *.clustS"+\
+                            "\n\t\tfiles to a new directory named clust.xx "+\
+                            "with xx replaced by new clustering threshold")
 
     # warning message for low minsamp
-    if minsamp < 5:
-        sys.stderr.write("""\n\t warning: Mindepth < 5 is not recommended for this step.\n
-                            If you intend to make low coverage base calls use a high mindepth in
-                            step 4 to accurately infer H & E parameters, and then use a low mindepth
-                            in conjunction with the line 31 params file option to make low coverage
-                            base calls""")
+    if params["mindepth"] < 5:
+        sys.stderr.write("\n\twarning: Mindepth < 5 is not recommended\n"+\
+               "\t\tfor this step. If you intend to make low\n"+\
+               "\t\tcoverage base calls use a high mindepth in\n"+\
+               "\t\tstep 4 to accurately infer H & E parameters, \n"+\
+               "\t\tand then use a low mindepth in conjunction \n"+\
+               "\t\twith the line 31 params file option to make\n"+\
+               "\t\tlow coverage base calls")
         
     # if haploid data
-    if haplos == 1:
-        sys.stderr.write("\n\tapplying haploid-based test (infer E while H is fixed to 0)\n\t")
+    if params["haplos"] == 1:
+        sys.stderr.write("\n\tapplying haploid-based test (infer E"+\
+                         "while H is fixed to 0)\n\t")
 
     # if double digest use first cut site
-    if "," in CUT:
-        CUT1, CUT2 = CUT.strip().split(",")
+    if "," in params["cut"]:
+        cut1, cut2 = params["cut"].strip().split(",")
     else:
-        CUT1 = CUT2 = CUT
+        cut1 = cut2 = params["cut"]
 
     # load up work queue
     work_queue = multiprocessing.Queue()
 
     # iterate over files
-    HH = glob.glob(WORK+"clust"+ID+"/"+subset+"*.clustS*")
+    clustsfiles = glob.glob(params["work"]+"clust"+params["wclust"]+\
+                          "/"+params["subset"]+"*.clustS*")
     submitted = 0
-    FS = []
-    if len(HH) > 1:
+    funcfiles = []
+    if len(clustsfiles) > 1:
         ## sort files by size
-        for i in range(len(HH)):
-            statinfo = os.stat(HH[i])
+        for clustfile in range(len(clustsfiles)):
+            statinfo = os.stat(clustsfiles[clustfile])
             if statinfo.st_size > 1000:
-                FS.append((HH[i],statinfo.st_size))
+                funcfiles.append((clustsfiles[clustfile], statinfo.st_size))
             else:
-                print "excluding ",HH[i],"file is too small\n"
-        FS.sort(key=lambda x: x[1])
-        FS = [i[0] for i in FS]
+                sys.stderr.write("\n\texcluding ", clustsfiles[clustfile]+\
+                                 "file is too small\n")
+        funcfiles.sort(key=lambda x: x[1])
+        funcfiles = [i[0] for i in funcfiles]
     else:
-        FS = HH
-    REMOVE = glob.glob(WORK+'clust'+ID+"/cat.*")
-    FS = [f for f in FS if f not in REMOVE]
-    for handle in FS:
-        work_queue.put([WORK,handle, minsamp, CUT1, CUT2, datatype, haplos])
+        funcfiles = clustsfiles
+    removes = glob.glob(params["work"]+'clust'+params["wclust"]+"/cat.*")
+    funcfiles = [f for f in funcfiles if f not in removes]
+    for handle in funcfiles:
+        work_queue.put([params, handle, cut1, cut2, quiet])
         submitted += 1
 
-    " remove temp files if previous run "
-    for ff in FS:
-        end = ff.split("/")[-1].replace(".clustS.gz","") 
-        ff = WORK+"stats/."+end+".temp"
-        if os.path.exists(ff):
-            os.remove(ff)
+    ## remove temp files if previous run 
+    for handle in funcfiles:
+        end = handle.split("/")[-1].replace(".clustS.gz", "") 
+        tempfile = params["work"]+"stats/."+end+".temp"
+        if os.path.exists(tempfile):
+            os.remove(tempfile)
 
-    " create a queue to pass to workers to store the results "
+    ## create a queue to pass to workers to store the results
     result_queue = multiprocessing.Queue()
-    results = []
     
-    " spawn workers "
+    ##  spawn workers 
     jobs = []
-    for i in range( min(Parallel,submitted) ):
+    for _ in range(min(params["parallel"], submitted)):
         worker = Worker(work_queue, result_queue, optim)
         worker.start()
         jobs.append(worker)
     for job in jobs:
         job.join()
 
-    " write results to stats file "
-    if not os.path.exists(WORK+"stats/Pi_E_estimate.txt"):
-        outstats = open(WORK+"stats/Pi_E_estimate.txt",'w')
+    ## write results to stats file
+    if not os.path.exists(params["work"]+"stats/Pi_E_estimate.txt"):
+        outstats = open(params["work"]+"stats/Pi_E_estimate.txt", 'w')
         outstats.write("taxa\tH\tE\n")
     else:
-        outstats = open(WORK+"stats/Pi_E_estimate.txt",'a')
-    for ff in FS:
-        end = ff.split("/")[-1].replace(".clustS.gz","")
-        ft = WORK+"stats/."+end+".temp"
-        line = open(ft).readlines()
+        outstats = open(params["work"]+"stats/Pi_E_estimate.txt", 'a')
+
+    ## remove stats temp files
+    for handle in funcfiles:
+        end = handle.split("/")[-1].replace(".clustS.gz", "")
+        tempfile = params["work"]+"stats/."+end+".temp"
+        line = open(tempfile).readlines()
         outstats.write(line[0])
-        os.remove(ft)
-        # n,h,e = line[0].strip().split("\t")
-        # H.append(float(h))
-        # E.append(float(e))
-    #outstats.write(" ".join(["mean E =",str(numpy.mean(E))])+"\n")
-    #outstats.write(" ".join(["mean H =",str(numpy.mean(H))]))
+        os.remove(tempfile)
     outstats.close()
-    
 
 
+if __name__ == "__main__":
+    main()

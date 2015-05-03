@@ -1,4 +1,10 @@
 #! /usr/bin/env python2
+
+""" 
+de-replicates edit files and clusters de-replciated reads 
+by sequence similarity using vsearch
+"""
+
 import multiprocessing
 import sys
 import os
@@ -9,524 +15,573 @@ import subprocess
 import operator
 import gzip
 import re
-#import threading
+import fileinput
 from potpour import Worker
 
 
+def makederepclust(params, outfolder, handle):
+    """ combines information from .u and ._temp files 
+    to create .clust files, which contain un-aligned clusters """
 
-def makederepclust(outfolder,handle,w1,datatype):
-    if os.path.exists(outfolder+"/"+handle.split("/")[-1].replace(".edit",".u")):
-        Userout = open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".u"), 'r').readlines()
+    ## if .u files are present this read them in as userout
+    if os.path.exists(outfolder+"/"+\
+                      handle.split("/")[-1].\
+                      replace(".edit", ".u")):
+        userout = open(outfolder+"/"+handle.split("/")[-1].\
+                       replace(".edit", ".u"), 'r').readlines()
     else:
-        Userout = []
-        print "\n\tSkipping: no '.u' file available for sample",handle.split("/")[-1]
-        #sys.exit()
-    outfile = gzip.open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz"),'w')
+        userout = []
+        print "\n\tSkipping: no '.u' file available for sample %s" % (
+               handle.split("/")[-1])
 
-    " load reads into a Dictionary"
-    D = {}
-    f = open(handle.replace(".edit",".derep")).read()
-    for line in f.split(">")[1:]:
-        line = line.replace(";\n","\n",1) # Workaround to comply with both vsearch and usearch
-        a,b,c = line.replace("\n",";",1).replace("\n","").split(";")
-        D[">"+a+";"+b+";"] = [int(b.replace("size=","")),c.strip()]
+    ## create an output file to write cluster to        
+    outfile = gzip.open(outfolder+"/"+\
+                        handle.split("/")[-1].\
+                        replace(".edit", ".clust.gz"), 'w')
 
-    " create dictionary of .u file cluster hits info "
-    U = {}
-    for line in [line.split("\t") for line in Userout]:
-        if line[1].endswith(";") == False: # Workaround to comply with both vsearch and usearch
-            line[1] += ";"
-            line[0] += ";"
-            line[5] = re.sub("\..*\n","\n", line[5])
-        if ">"+line[1] in U:
-            U[">"+line[1]].append([">"+line[0],line[4],line[5].strip(),line[3]])
+    ## load reads into a dictionary"
+    hits = {}  ## D = {}
+    dereps = open(handle.replace(".edit", ".derep")).read()  ## f
+    for line in dereps.split(">")[1:]:
+        # Workaround to comply with both vsearch and usearch
+        line = line.replace(";\n", "\n", 1) 
+        a, b, c = line.replace("\n", ";", 1).replace("\n", "").split(";")
+        hits[">"+a+";"+b+";"] = [int(b.replace("size=", "")), c.strip()]
+
+    ## create dictionary of .u file cluster hits info "
+    udic = {}  ## U
+    for uline in [line.split("\t") for line in userout]:
+        # Workaround to comply with both vsearch and usearch
+        if uline[1].endswith(";") == False: 
+            uline[1] += ";"
+            uline[0] += ";"
+            uline[5] = re.sub("\..*\n", "\n", uline[5])
+        if ">"+uline[1] in udic:
+            udic[">"+uline[1]].append([">"+uline[0], uline[4],
+                                           uline[5].strip(),
+                                           uline[3]])
         else:
-            U[">"+line[1]] = [[">"+line[0],line[4],line[5].strip(),line[3]]]
+            udic[">"+uline[1]] = [[">"+uline[0], uline[4],
+                                       uline[5].strip(),
+                                       uline[3]]]
 
-    " map sequences to clust file in order"
+    ## map sequences to clust file in order
     seq = ""
-    SEQS = []
-    for key,values in U.items():
-        seq = key+"\n"+D[key][1]+'\n'
-        S    = [i[0] for i in values]       ## names of matches
-        R    = [i[1] for i in values]       ## + or - for strands
-        Cov  = [int(float(i[2])) for i in values]  ## query coverage (overlap)
-        ins = [int(i[3]) for i in values]
-        " allow only 'w1' indels in hits to seed"
-        if not any([int(i) > int(w1) for i in ins]):
-            for i in range(len(S)):
-                if R[i] == "+":
-                    " only match forward reads if high Cov"
-                    if Cov[i] >= 90:
-                        seq += S[i]+'+\n' + D[S[i]][1] + "\n"
+    seqslist = []  ## SEQS
+    for key, values in udic.items():
+        seq = key+"\n"+hits[key][1]+'\n'  
+        matchnames = [i[0] for i in values]       ## names of matches (S)
+        forwrev = [i[1] for i in values]       ## + or - for strands (R)
+        cov = [int(float(i[2])) for i in values]  ## query coverage (overlap)
+        ins = [int(i[3]) for i in values]  ## indels
+
+        ## allow only 'w1' indels in hits to seed
+        if not any([int(i) > int(params["w1"]) for i in ins]):
+            for i in range(len(matchnames)):
+                if forwrev[i] == "+":
+
+                    ## only match forward reads if high Cov
+                    if cov[i] >= 90:
+                        seq += matchnames[i]+'+\n'+\
+                               hits[matchnames[i]][1]+"\n"
                 else:
-                    " name change for reverse hits"
-                    " allow low Cov for reverse hits"
-                    #seq += S[i].replace("_r1;","_c1;")+'-\n' + comp(D[S[i]][1][::-1]) + "\n"
-                    seq += S[i].replace("_r1;","_c1;")+'-\n' + comp(D[S[i]][1][::-1]) + "\n"
-        SEQS.append(seq)
-    outfile.write("//\n//\n".join(SEQS))
+                    ## name change for reverse hits
+                    ## allow low Cov for reverse hits
+                    seq += matchnames[i].replace("_r1;", "_c1;")+\
+                               '-\n'+comp(hits[matchnames[i]][1][::-1])+"\n"
+        seqslist.append(seq)
+    outfile.write("//\n//\n".join(seqslist))
 
-    " make Dict. from seeds (_temp files) "
-    I = {}
-    invar = open(outfolder+"/"+handle.split("/")[-1].replace(".edit","._temp"),'r')
-    A = [(">"+i.replace("\n","")).split(';') for i in invar.read().split(">")[1:]]
+    ## make Dict. from seeds (_temp files) 
+    seedsdic = {}     ##  I
+    invar = open(outfolder+"/"+handle.split("/")[-1].\
+                               replace(".edit", "._temp"), 'r')
+    invarlist = [(">"+i.replace("\n", "")).split(';') for i \
+                      in invar.read().split(">")[1:]]
     invar.close()
-    for i in A:
-        try: I[i[0]+';'+i[1]+';'] = i[2]
-        except IndexError:
-            None  ## skip binary errors 
-    del A
 
-    " create a set for keys in I not in U"
-    set1 = set(I.keys())       ## temp file (no hits) seeds
-    set2 = set(U.keys())       ## u file (with hits) seeds
+    ## fill the seedsdic dictionary with seeds from invarlist
+    for i in invarlist:
+        try: 
+            seedsdic[i[0]+';'+i[1]+';'] = i[2]
+        except IndexError:
+            pass  ## skip binary errors 
+    del invarlist
+
+    ## create a set for keys in I not in seedsdic
+    set1 = set(seedsdic.keys())       ## temp file (no hits) seeds
+    set2 = set(udic.keys())       ## u file (with hits) seeds
     diff = set1.difference(set2)  ## seeds in 'temp not matched to in 'u
     if len(diff) > 1:
         for i in diff:
-            D[i][1].replace("n","Z").upper().replace("Z","n")
-            outfile.write("//\n//\n"+i+"\n"+D[i][1]+'\n')
+            hits[i][1].replace("n", "Z").upper().replace("Z", "n")
+            outfile.write("//\n//\n"+i+"\n"+hits[i][1]+'\n')
     else:
         if diff:
-            pp = diff.pop()
-            D[D.keys()[0]][1].replace("n","Z").upper().replace("Z","n")            
-            outfile.write(pp+"\n"+D[D.keys()[0]][1]+'\n')
+            popped = diff.pop()
+            hits[hits.keys()[0]][1].replace("n", "Z").upper().replace("Z", "n")            
+            outfile.write(popped+"\n"+hits[hits.keys()[0]][1]+'\n')
     outfile.write("//\n//\n")
     outfile.close()
-    del f
-    del Userout
+    del dereps
+    del userout
 
 
-
-def derep(vsearch, handle, datatype, minuniq):
+def derep(params, handle):
     """ dereplicates reads and write to .step file """
-    if 'vsearch' in vsearch:
-        T = ""
+    if 'vsearch' in params["vsearch"]:
+        threads = " "
     else:
-        T = "-threads 1"
-    C = " -derep_fulllength "+handle
-    if datatype in ['pairgbs','gbs','merged']:
-        P = " -strand both "
+        threads = " -threads 1"
+    if params["datatype"] in ['pairgbs', 'gbs', 'merged']:
+        reverse = " -strand both "
     else:
-        P = " "
-    if minuniq:
-        M = " -minuniquesize "+str(minuniq)
+        reverse = " "
+    if params["minuniq"]:
+        mins = " -minuniquesize "+str(params["minuniq"])
     else:
-        M = " "
-    cmd = vsearch+\
-        C+\
-        P+\
-        M+\
-        " -output "+handle.replace(".edit",".step")+\
+        mins = " "
+    cmd = params["vsearch"]+\
+        " -derep_fulllength "+handle+\
+        reverse+\
+        mins+\
+        " -output "+handle.replace(".edit", ".step")+\
         " -sizeout "+\
-        T
-    subprocess.call(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+        threads
+    subprocess.call(cmd, shell=True, 
+                         stderr=subprocess.STDOUT, 
+                         stdout=subprocess.PIPE)
 
 
-
-def sortbysize(vsearch, handle):
+def sortbysize(params, handle):
     """ sorts dereplicated file (.step) so reads that were highly
     replicated are at the top, and singletons at bottom, writes
     output to .derep file """
-    cmd = vsearch+\
-          " -sortbysize "+handle.replace(".edit",".step")+\
-          " -output "+handle.replace(".edit",".derep")
-    subprocess.call(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
-    if os.path.exists(handle.replace(".edit",".step")):
-        os.remove(handle.replace(".edit",".step"))
-    #cmd2 = "/bin/rm "+
-    #subprocess.call(cmd2, shell=True)
-
+    cmd = params["vsearch"]+\
+          " -sortbysize "+handle.replace(".edit", ".step")+\
+          " -output "+handle.replace(".edit", ".derep")
+    subprocess.call(cmd, shell=True, 
+                         stderr=subprocess.STDOUT,
+                         stdout=subprocess.PIPE)
+    if os.path.exists(handle.replace(".edit", ".step")):
+        os.remove(handle.replace(".edit", ".step"))
 
 
 ## SKIP FOR VSEARCH
-def splitbigfilesforderep(FS,vsearch,datatype,minuniq):
+def splitbigfilesforderep(dfiles, params):
     """ work around 4GB limit of 32-bit usearch
     by splitting files for derep then rejoining """
-    for handle in FS:
-        if not os.path.exists(handle.replace(".edit",".derep")):
-            "break every 7.5M reads"
+    for handle in dfiles:
+        if not os.path.exists(handle.replace(".edit", ".derep")):
+            ## break every 7.5M reads
             bsize = 15000000
             statinfo = os.stat(handle)
             size = statinfo.st_size
-            " if file size is over 3G"
+            ## if file size is over 3G
             if size > 300000000:
-                infile = open(handle,'r')
-                L = infile.readlines()
-                infile.close()
-                breaks = len(L)/bsize
-                l = 0
+                with open(handle, 'r') as infile:
+                    alllines = infile.readlines()
+                breaks = len(alllines)/bsize
+                lines = 0
                 if breaks > 1:
-                    for b in range(breaks+1):
-                        out = open(handle+"_piece_"+str(b),'w')
-                        out.write("".join(L[l:l+bsize]))
+                    for brake in range(breaks+1):
+                        out = open(handle+"_piece_"+str(brake), 'w')
+                        out.write("".join(alllines[lines:lines+bsize]))
                         out.close()
-                        derep(vsearch,handle+"_piece_"+str(b),datatype,minuniq)
-                        l += bsize
+                        derep(params, handle+"_piece_"+str(brake))
+                        lines += bsize
                 else:
-                    b=0
-                    out = open(handle+"_piece_"+str(b),'w')
-                    out.write("".join(L[l:l+bsize]))
-                    out.close()
-                    derep(vsearch,handle+"_piece_"+str(b),datatype,minuniq)
-                    l += bsize
+                    brakes = 0
+                    with open(handle+"_piece_"+str(brakes), 'w') as out:
+                        out.write("".join(alllines[lines:lines+bsize]))
+                    derep(params, handle+"_piece_"+str(brakes))
+                    lines += bsize
 
+                with open(handle+"_piece_"+str(breaks+1), 'w') as out:
+                    out.write("".join(alllines[lines:]))
+                del alllines
+                derep(params, handle+"_piece_"+str(brakes+1))
 
-                out = open(handle+"_piece_"+str(b+1),'w')
-                out.write("".join(L[l:]))
-                out.close()
-                del L
-                derep(vsearch, handle+"_piece_"+str(b+1), datatype, minuniq)
-                cmd = "/bin/cat "+handle.replace(".edit",".step")+"_piece* > "+handle.replace(".edit",".derep")
-                os.system(cmd)
-                cmd = "/bin/rm "+handle.replace(".edit",".step")+"_piece*"
-                os.system(cmd)
-                if os.path.exists(handle+"_piece_0"):
-                    cmd = "/bin/rm "+handle+"_piece*"
-                    os.system(cmd)
+                sublist = glob.glob(handle.replace(".edit", ".step")+"_piece*")
+                if len(sublist) > 0:
+                    fout = open(handle.replace(".edit", ".derep"))
+                    for line in fileinput.input(sublist):
+                        fout.write(line)        
+                for rmfile in glob.glob(handle.\
+                              replace(".edit", ".step")+"_piece*"):
+                    os.remove(rmfile)
         else:
-            print 'skipping derep of ', handle.replace(".edit",".derep"), ', aleady exists'
+            print 'skipping derep of '+handle.replace(".edit", ".derep")+\
+                                                        ', aleady exists'
 
 
-
-def fullcluster(vsearch, outfolder, handle, wclust, parallel, datatype, fileno, MASK, threads):
-    if datatype == 'pairddrad':
-        C = " -cluster_smallmem "+handle.replace(".edit",".firsts")
+def fullcluster(params, outfolder, handle):
+    """ calls vsearch for clustering """
+    if params["datatype"] == 'pairddrad':
+        comm = " -cluster_smallmem "+handle.replace(".edit", ".firsts")
     else:
-        C = " -cluster_smallmem "+handle.replace(".edit",".derep")
-    if datatype in ['gbs','merged']:
-        P = " -strand both "
-        COV = " -query_cov .35 " 
-    elif datatype == 'pairgbs':
-        P = " -strand both "
-        COV = " -query_cov .90 " 
+        comm = " -cluster_smallmem "+handle.replace(".edit", ".derep")
+    if params["datatype"] in ['gbs', 'merged']:
+        reverse = " -strand both "
+        cov = " -query_cov .35 " 
+    elif params["datatype"] == 'pairgbs':
+        reverse = " -strand both "
+        cov = " -query_cov .90 " 
     else:     ## rad, ddrad, ddradmerge
-        P = " -leftjust "
-        COV = " -query_cov .90"
-    if 'vsearch' not in vsearch:
-        Q = ""
+        reverse = " -leftjust "
+        cov = " -query_cov .90"
+    ## if vsearch and not usearch
+    if 'vsearch' not in params["vsearch"]:
+        masker = " "
     else:
-        Q = " -qmask "+MASK
-    cmd = vsearch+\
-        C+\
-        P+\
-        COV+\
-        Q+\
-        " -id "+wclust+\
-        " -userout "+outfolder+"/"+handle.split("/")[-1].replace(".edit",".u")+\
+        masker = " -qmask "+params["mask"]
+    cmd = params["vsearch"]+\
+        comm+\
+        reverse+\
+        cov+\
+        masker+\
+        " -id "+params["wclust"]+\
+        " -userout "+outfolder+"/"+\
+                     handle.split("/")[-1].replace(".edit", ".u")+\
         " -userfields query+target+id+gaps+qstrand+qcov"+\
         " -maxaccepts 1"+\
         " -maxrejects 0"+\
         " -minsl 0.5"+\
         " -fulldp"+\
-        " -threads "+`threads`+\
+        " -threads "+str(params["threads"])+\
         " -usersort "+\
-        " -notmatched "+outfolder+"/"+handle.split("/")[-1].replace(".edit","._temp")
-    subprocess.call(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+        " -notmatched "+outfolder+"/"+handle.split("/")[-1].\
+                                     replace(".edit", "._temp")
+    subprocess.call(cmd, shell=True,
+                         stderr=subprocess.STDOUT,
+                         stdout=subprocess.PIPE)
 
 
 
-def stats(outfolder, handle, mindepth, multihits):
-    temphandle = outfolder+"/"+handle.split("/")[-1].replace(".edit",".clustS.gz")
+def stats(params, outfolder, handle, multihits, quiet):
+    """ return stats output after clustering is finished """
+    temphandle = outfolder+"/"+handle.split("/")[-1].\
+                               replace(".edit", ".clustS.gz")
     infile = gzip.open(temphandle)
-    L = itertools.izip(*[iter(infile)]*2)
-    try: a = L.next()[0]
-    except StopIteration: print "no clusters found in ",temphandle+"\n\n"; sys.exit()
+    duo = itertools.izip(*[iter(infile)]*2)
+    try: 
+        ifas = duo.next()[0]   ## a
+    except StopIteration: 
+        print "no clusters found in ", temphandle+"\n\n"
+        sys.exit()
     depth = []
-    d = int(a.split(";")[1].replace("size=",""))
+    thisdepth = int(ifas.split(";")[1].replace("size=", ""))
     while 1:
-        try: a = L.next()[0]
-        except StopIteration: break
-        if a != "//\n":
-            d += int(a.split(";")[1].replace("size=",""))
+        try: 
+            ifas = duo.next()[0]
+        except StopIteration: 
+            break
+        if ifas != "//\n":
+            thisdepth += int(ifas.split(";")[1].replace("size=", ""))
         else:
-            depth.append(d)
-            d = 0
+            depth.append(thisdepth)
+            thisdepth = 0
     infile.close()
-    keep = [i for i in depth if i>=mindepth]
-    namecheck = temphandle.split("/")[-1].replace(".clustS.gz","")
+
+    keep = [i for i in depth if i >= params["mindepth"]]
+    namecheck = temphandle.split("/")[-1].replace(".clustS.gz", "")
     if depth:
-        me = round(numpy.mean(depth),3)
-        std = round(numpy.std(depth),3)
+        me = round(numpy.mean(depth), 3)
+        std = round(numpy.std(depth), 3)
     else:
         me = std = 0.0
     if keep:
-        mek = round(numpy.mean(keep),3)
-        stdk = round(numpy.std(keep),3)
+        mek = round(numpy.mean(keep), 3)
+        stdk = round(numpy.std(keep), 3)
     else:
         mek = stdk = 0.0
     out = [namecheck, len(depth),
-           me, std, len(keep), mek, stdk, multihits]
+           me, std, len(keep), 
+           mek, stdk, multihits]
 
     bins = [0, 5, 10, 15, 20, 25, 30, 35, 40, 50, 100, 250, 500, 99999]
-    ohist, edges = numpy.histogram(depth,bins)
+    ohist, edges = numpy.histogram(depth, bins)
     hist = [float(i)/sum(ohist) for i in ohist]
     hist = [int(round(i*30)) for i in hist]
 
-    sys.stderr.write("\tsample "+handle.split("/")[-1].split(".")[0]+" finished, "+str(len(depth))+" loci\n")
-    del depth,keep
-    return out,edges,hist,ohist
+    if not quiet:
+        sys.stderr.write("\tsample "+handle.split("/")[-1].\
+                         split(".")[0]+" finished, "+str(len(depth))+" loci\n")
+    del depth, keep
+    return out, edges, hist, ohist
 
 
 def comp(seq):
-    return seq.replace("A",'t')\
-           .replace('T','a')\
-           .replace('C','g')\
-           .replace('G','c')\
-           .replace('n','Z')\
-           .upper().replace("Z","n")
+    """ returns a seq with small complement"""
+    return seq.replace("A", 't')\
+           .replace('T', 'a')\
+           .replace('C', 'g')\
+           .replace('G', 'c')\
+           .replace('n', 'Z')\
+           .upper().replace("Z", "n")
 
 
 def sortalign(stringnames):
     """ parses muscle output from a string to two list """
-    G = stringnames.split("\n>")
-    GG = [i.split("\n")[0].replace(">","")+"\n"+"".join(i.split('\n')[1:]) for i in G]
-    aligned = [i.split("\n") for i in GG]
-    nn = [">"+i[0] for i in aligned]    #+["//"] #[">"+aligned[0][0]]
-    seqs = [i[1] for i in aligned]      #+["//"]   #[aligned[0][1]]
-    return nn,seqs
+    objs = stringnames.split("\n>")
+    seqs = [i.split("\n")[0].replace(">", "")+"\n"+\
+              "".join(i.split('\n')[1:]) for i in objs]
+    aligned = [i.split("\n") for i in seqs]
+    newnames = [">"+i[0] for i in aligned]
+    seqs = [i[1] for i in aligned]     
+    return newnames, seqs
 
 
-
-def alignfast(names,seqs,muscle):
+def alignfast(names, seqs, muscle):
     """ performs muscle alignments on cluster and returns output as string"""
-    ST = "\n".join('>'+i+'\n'+j for i,j in zip(names,seqs))
-    cmd = "/bin/echo '"+ST+"' | "+muscle+" -quiet -in -"
-    p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
-    (fin, fout) = (p.stdin, p.stdout)
+    inputstring = "\n".join('>'+i+'\n'+j for i, j in zip(names, seqs))
+    cmd = "/bin/echo '"+inputstring+"' | "+muscle+" -quiet -in -"
+    piped = subprocess.Popen(cmd, shell=True, 
+                                  stdin=subprocess.PIPE,
+                                  stdout=subprocess.PIPE, 
+                                  stderr=subprocess.STDOUT,
+                                  close_fds=True)
+    (_, fout) = (piped.stdin, piped.stdout)
     return fout.read()
 
 
-
-def alignwrapPAIR(infile,mindepth,muscle,w2):
+def alignwrappair(params, handle):
     """ same as alignwrap but for pairddrads,
-    feeds in first and second reads separately """
-    f = gzip.open(infile)
-    k = itertools.izip(*[iter(f)]*2)
-    OUT = []
-    OUTP = []
+        feeds in first and second reads separately """
+    ## iterator for 2 lines at a time
+    infile = gzip.open(handle)
+    duo = itertools.izip(*[iter(infile)]*2)
+
+    ## lists for storing first and second aligned loci
+    out = []
+    outp = []
     cnts = 0
     multihits = 0
+
     while 1:
-        try: first = k.next()
-        except StopIteration: break
-        itera = [first[0],first[1]]
+        try:
+            first = duo.next()
+        except StopIteration:
+            break
+        itera = [first[0], first[1]]
         names = []   
         seqs = []
-        STACK = []
-        BADPAIR = []
+        stack = []
+        badpair = []
         nameiter = 0
-        " read in all data for this stack "
+
+        ##read in all data for this stack "
         while itera[0] != "//\n":
             names.append(itera[0].strip()+"_"+str(nameiter))
             seqs.append(itera[1].strip())  ## .upper())
-            itera = k.next()
+            itera = duo.next()
             nameiter += 1
 
-        " if longer than 1 it needs aligning "
+        ## if longer than 1 it needs aligning "
         if len(names) > 1:
-            firsts  = [i.split("n")[0] for i in seqs]
+            firsts = [i.split("n")[0] for i in seqs]
             seconds = [i.split("n")[-1] for i in seqs]
 
-            " align first reads "
-            stringnames = alignfast(names[0:200],firsts[0:200],muscle)
-            nn1, ss = sortalign(stringnames)
-            D1 = {}
-            for i in range(len(nn1)):
-                D1[nn1[i]] = ss[i]
-            " reorder keys by nameiter order "
-            keys = D1.keys()
-            keys.sort(key=lambda x:int(x.split(";")[1].replace("size=","")), reverse=True)
-
-            " align second reads "
-            stringnames = alignfast(names[0:200],seconds[0:200],muscle)
-            nn2, ss = sortalign(stringnames)
-            D2 = {}
-            for i in range(len(nn2)):
-                D2[nn2[i]] = ss[i]
+            ## align first reads "
+            stringnames = alignfast(names[0:200], 
+                                    firsts[0:200],
+                                    params["muscle"])
+            anames1, aseqs1 = sortalign(stringnames)
+            somedic1 = {}
+            for i in range(len(anames1)):
+                somedic1[anames1[i]] = aseqs1[i]
             
-            " check that second reads do not align poorly "
-            badpair = any([D2[i].count("-")>int(w2) for i in D2 if '_trim' not in i])
+            ## reorder keys by nameiter order
+            keys = somedic1.keys()
+            keys.sort(key=lambda x: int(x.split(";")[1].\
+                                        replace("size=", "")),
+                                        reverse=True)
+
+            ## align second reads "
+            stringnames = alignfast(names[0:200],
+                                    seconds[0:200],
+                                    params["muscle"])
+            anames2, aseqs2 = sortalign(stringnames)
+            somedic2 = {}
+            for i in range(len(anames2)):
+                somedic2[anames2[i]] = aseqs2[i]
+            
+            ## check that second reads do not align poorly 
+            badpair = any([somedic2[i].count("-") > int(params["w2"]) \
+                             for i in somedic2 if '_trim' not in i])
 
             if not badpair:
                 for key in keys:
-                    STACK.append("_".join(key.split("_")[:-1])+'\n'+D1[key]+"nnnn"+D2[key])
+                    stack.append("_".join(key.split("_")[:-1])+'\n'+\
+                                     somedic1[key]+"nnnn"+somedic2[key])
             else:
                 for key in keys:
-                    BADPAIR.append("_".join(key.split("_")[:-1])+'\n'+D1[key]+"nnnn"+D2[key])
+                    badpair.append("_".join(key.split("_")[:-1])+'\n'+\
+                                     somedic1[key]+"nnnn"+somedic2[key])
                 multihits += 1
                 
         else:
             if seqs:  ## sequence could have been trimmed
-                STACK.append("_".join(names[0].split("_")[:-1])+'\n'+seqs[0])
+                stack.append("_".join(names[0].split("_")[:-1])+'\n'+seqs[0])
 
         cnts += 1
-        if STACK:
-            OUT.append("\n".join(STACK))
-        if BADPAIR:
-            OUTP.append("\n".join(BADPAIR))
+        if stack:
+            out.append("\n".join(stack))
+        if badpair:
+            outp.append("\n".join(badpair))
 
-        if not cnts % 500:
-            if OUT:
-                outfile = gzip.open(infile.replace(".clust",".clustS"),'a')
-                outfile.write("\n//\n//\n".join(OUT)+"\n//\n//\n")
+        if not cnts % 5000:
+            if out:
+                outfile = gzip.open(infile.replace(".clust", ".clustS"), 'a')
+                outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
                 outfile.close()
-            OUT = []
+            out = []
 
-    outfile = gzip.open(infile.replace(".clust",".clustS"),'a')
-    if OUT:
-        outfile.write("\n//\n//\n".join(OUT)+"\n//\n//\n")
+    outfile = gzip.open(infile.replace(".clust", ".clustS"), 'a')
+    if out:
+        outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
     outfile.close()
-    if OUTP:
-        outbads = gzip.open(infile.replace(".clust",".badpairs"),'a')
-        outbads.write("\n//\n//\n".join(OUTP)+"\n//\n//\n")
+    if outp:
+        outbads = gzip.open(infile.replace(".clust", ".badpairs"), 'a')
+        outbads.write("\n//\n//\n".join(outp)+"\n//\n//\n")
         outbads.close()
 
     return multihits
-
-
     
     
-def alignwrap(infile,mindepth,muscle,w1):
+def alignwrap(params, handle):
     """ splits clusters and feeds them into alignfast function """
-    f = gzip.open(infile)
-    k = itertools.izip(*[iter(f)]*2)
-    OUT = []
+    ## iterator for 2 lines at a time
+    infile = gzip.open(handle)
+    duo = itertools.izip(*[iter(infile)]*2)
+
+    ## list for storing until writing
+    out = []
     cnts = 0
     while 1:
-        try: first = k.next()
-        except StopIteration: break
-        itera = [first[0],first[1]]
-        STACK = []
+        try: 
+            first = duo.next()
+        except StopIteration:
+            break
+        itera = [first[0], first[1]]
+        stack = []
         names = []   
         seqs = []
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip().replace("nnnn",""))
-            itera = k.next()
+            seqs.append(itera[1].strip().replace("nnnn", ""))
+            itera = duo.next()
         if len(names) > 1:
-            " keep only the 200 most common dereps, aligning more is surely junk "
-            stringnames = alignfast(names[0:200],seqs[0:200],muscle)
-            nn, ss = sortalign(stringnames)
-            D1 = {}
+            ## keep only the 200 most common dereps, 
+            ## aligning more is surely junk
+            stringnames = alignfast(names[0:200], seqs[0:200], params["muscle"])
+            anames, aseqs = sortalign(stringnames)
+            ## a dictionary for names2seqs post alignment and indel check
+            somedic = {}
             leftlimit = 0
-            for i in range(len(nn)):
-                """ apply filter for number of indels again, post-alignment,
-                this affects indels of sequences relative to each other, not
-                just relative to the seed sequence """
-                if ss[i].rstrip("-").lstrip("-").count("-") <= w1:
-                    D1[nn[i]] = ss[i]
+            for i in range(len(anames)):
+                ## apply filter for number of indels again, post-alignment,
+                ## this affects indels of sequences relative to each other, not
+                ## just relative to the seed sequence """
+                if aseqs[i].rstrip("-").lstrip("-").count("-") <= params["w1"]:
+                    somedic[anames[i]] = aseqs[i]
 
-                " do not allow seqeuence to the left of the seed (may include adapter/barcodes)"
-                if not nn[i].split(";")[-1]:
-                    leftlimit = min([ss[i].index(j) for j in ss[i] if j!="-"])
+                ## do not allow seqeuence to the left of the 
+                ## seed (may include adapter/barcodes)"
+                if not anames[i].split(";")[-1]:
+                    leftlimit = min([aseqs[i].index(j) for j in\
+                                              aseqs[i] if j != "-"])
                     
-            " reorder keys by derep number "
-            keys = D1.keys()
-            keys.sort(key=lambda x:int(x.split(";")[1].replace("size=","")), reverse=True)
+            ## reorder keys by derep number "
+            keys = somedic.keys()
+            keys.sort(key=lambda x: int(x.split(";")[1].\
+                          replace("size=", "")), reverse=True)
             for key in keys:
-                STACK.append(key+'\n'+D1[key][leftlimit:])
+                stack.append(key+'\n'+somedic[key][leftlimit:])
         else:
             if names:
-                STACK = [names[0]+"\n"+seqs[0]]
+                stack = [names[0]+"\n"+seqs[0]]
 
-        if STACK:
-            OUT.append("\n".join(STACK))
+        if stack:
+            out.append("\n".join(stack))
 
         cnts += 1
-        if not cnts % 500:
-            if OUT:
-                outfile = gzip.open(infile.replace(".clust",".clustS"),'a')
-                outfile.write("\n//\n//\n".join(OUT)+"\n//\n//\n")
+        ## only write to file after 5000 aligned loci
+        if not cnts % 5000:
+            if out:
+                outfile = gzip.open(handle.replace(".clust", ".clustS"), 'a')
+                outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
                 outfile.close()
-            OUT = []
+            out = []
 
-    outfile = gzip.open(infile.replace(".clust",".clustS"),'a')
-    if OUT:
-        outfile.write("\n//\n//\n".join(OUT)+"\n//\n//\n")
+    outfile = gzip.open(handle.replace(".clust", ".clustS"), 'a')
+    if out:
+        outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
     outfile.close()
 
 
-def orderseqs(nn,seqs):
+def orderseqs(names, seqs):
     """ reorders cluster by derep number because muscle output does
-    not retain the order """
-    try: dereps = [int(i.split(";")[1].replace("size=","")) for i in nn]
+        not retain the order """
+    try: 
+        dereps = [int(i.split(";")[1].replace("size=", "")) for i in names]
     except IndexError:
-        print nn
+        print names
     ordered = sorted(range(len(dereps)), key=lambda a: dereps[a], reverse=True)
-    nnames = [nn[i] for i in ordered]
+    nnames = [names[i] for i in ordered]
     sseqs = [seqs[i] for i in ordered]
     return nnames, sseqs
 
 
 
 def splitter(handle):
-    "splits paired reads and writes firsts to a file"
-    lines = iter(open(handle.replace(".edit",".derep")).read().strip().split(">")[1:])
-    ff = []
-    n = ""
+    """splits paired reads and writes firsts to a file """
+    ## read in the derep file
+    lines = iter(open(handle.replace(".edit", ".derep")).\
+                             read().strip().split(">")[1:])
+    firsts = []
     cnts = 0
     for line in lines:
-        dd = line.split('\n')
-        n = dd[0]
-        s = "".join(dd[1:])
+        obj = line.split('\n')
+        name = obj[0]
+        seq = "".join(obj[1:])
         ## legacy fix for pyrad2 -> pyrad 3
-        s = s.replace("XXXX","nnnn")
+        seq = seq.replace("XXXX", "nnnn")
         ## split on nn separator
-        s = s.split("nn")[0]
-        ff.append(">"+n+"\n"+s)
+        seq = seq.split("nn")[0]
+        firsts.append(">"+name+"\n"+seq)
         cnts += 1
         if not cnts % 100000:
-            orderfirsts = open(handle.replace(".edit",".firsts"),'a')
-            orderfirsts.write("\n".join(ff))
+            orderfirsts = open(handle.replace(".edit", ".firsts"), 'a')
+            orderfirsts.write("\n".join(firsts))
             orderfirsts.close()
-            ff = []
-    orderfirsts = open(handle.replace(".edit",".firsts"),'a')
-    orderfirsts.write("\n".join(ff))
+            firsts = []
+    orderfirsts = open(handle.replace(".edit", ".firsts"), 'a')
+    orderfirsts.write("\n".join(firsts))
     orderfirsts.close()
-            
-    #dpairs = iter(open(handle.replace(".edit",".derep")).read().strip().split(">")[1:])
-    # for d in dpairs:
-    #     dd = d.split('\n')
-    #     n = dd[0]
-    #     s = "".join(dd[1:])
-    #     print 's', s
-    #     s1 = s.split("xx")[0]
-    #     print 's1', s1
-    #     ff.append(">"+n+'\n'+s1+"\n")
-    #     print 'ff', ff
-    #     cnts += 1
-    #     if not cnts % 10000:
-    #         orderfirsts = open(handle.replace(".edit",".firsts"),'a')
-    #         orderfirsts.write("\n".join(ff))
-    #         orderfirsts.close()
-    #         ff = []
-    # orderfirsts = open(handle.replace(".edit",".firsts"),'a')
-    # orderfirsts.write("\n".join(ff))
-    # orderfirsts.close()
     
 
-def final(vsearch, outfolder, handle, wclust, mindepth,
-          parallel, muscle, datatype, fileno,
-          w1, w2, WORK, minuniq, MASK, threads, remake):
+def final(params, outfolder, handle, fileno, remake, quiet):
+    """ run the full script """
 
     multihits = 0
     if not remake:
-        " de-replicate the reads if not done by big file method"
-        if handle.replace(".edit",".derep") not in glob.glob(WORK+"edits/*"):
-            derep(vsearch, handle, datatype, minuniq)
-            sortbysize(vsearch,handle)
+        ## de-replicate the reads if not done by big file method"
+        if handle.replace(".edit", ".derep") not in \
+                          glob.glob(params["work"]+"edits/*"):
+            derep(params, handle)
+            sortbysize(params, handle)
 
-        if datatype == 'pairddrad':
-            if handle.replace(".edit",".firsts") not in glob.glob(WORK+"edits/*"):
+        if params["datatype"] == 'pairddrad':
+            if handle.replace(".edit", ".firsts") not in \
+                              glob.glob(params["work"]+"edits/*"):
                 splitter(handle)
 
-        " cluster the reads "
-        fullcluster(vsearch, outfolder, handle, wclust, parallel, datatype, fileno, MASK, threads)
+        ## cluster the reads "
+        fullcluster(params, outfolder, handle)
 
-    " build cluster files from .u & .temp files "
-    makederepclust(outfolder, handle, w1, datatype)
+    ## build cluster files from .u & .temp files
+    makederepclust(params, outfolder, handle)
 
     # " thread each align job x2 to reach ~100% "
     # " split file in half"
@@ -562,161 +617,194 @@ def final(vsearch, outfolder, handle, wclust, mindepth,
     # os.remove(ff1)
     # os.remove(ff2)    
 
-    " align clusters w/ muscle "
-    if 'pair' in datatype:
-        multihits = alignwrapPAIR(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz"),
-                                  mindepth, muscle, w2)
-    else:
-        alignwrap(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz"), mindepth, muscle, w1)
+    ## align clusters w/ muscle "
+    if 'pair' in params["datatype"]:
+        multihits = alignwrappair(params, 
+                           outfolder+"/"+handle.split("/")[-1].\
+                           replace(".edit", ".clust.gz"))
 
-    out,edges,hist,ohist = stats(outfolder, handle, mindepth, multihits)
-    end = handle.split("/")[-1].replace(".edit","")
-    outwrite = open(outfolder+"/.temp."+end,'w')
+    else:
+        alignwrap(params, outfolder+"/"+handle.split("/")[-1].\
+                          replace(".edit", ".clust.gz"))
+
+    ## get stats 
+    out, edges, hist, ohist = stats(params,
+                                    outfolder, 
+                                    handle, 
+                                    multihits, 
+                                    quiet)
+
+    end = handle.split("/")[-1].replace(".edit", "")
+    outwrite = open(outfolder+"/.temp."+end, 'w')
     outwrite.write("\t".join([str(i) for i in out]))
 
+    ## print histograms to file
     print >>outwrite, "\nbins\tdepth_histogram\tcnts"
     print >>outwrite, "   :\t0------------50-------------100%"
 
-    for i,j,k in zip(edges,hist,ohist):
+    for i, j, k in zip(edges, hist, ohist):
         firststar = " "
-        if k>0:
+        if k > 0:
             firststar = "*"
-        print >>outwrite, i,'\t', firststar+"*"*j + " "*(34-j),k   ## HERE
+        print >>outwrite, i, '\t', firststar+"*"*j + " "*(34-j), k   ## HERE
     outwrite.close()
 
 
-def main(WORK, parallel, wclust, mindepth,
-         subset, datatype, w1, w2, minuniq,
-         MASK, muscle, vsearch, threads, remake):
 
-    " find .edit files in edits/ directory "
-    if not os.path.exists(WORK+'edits/'):
-        print "\terror: could not find edits/ folder in working directory"
-        sys.exit()
+def main(params, quiet, remake):
+    """ calls the main script """
 
-    " make output folder for clusters" 
-    if not os.path.exists(WORK+'clust'+wclust):
-        os.makedirs(WORK+'clust'+wclust)
-    outfolder = WORK+'clust'+str(wclust)
-    if not os.path.exists(WORK+'stats'):
-        os.makedirs(WORK+'stats')
+    #WORK, parallel, wclust, mindepth,
+    #     subset, datatype, w1, w2, minuniq,
+    #     MASK, muscle, vsearch, threads, remake):
 
-    " remake option... in development"
+    ## find .edit files in edits/ directory
+    if not os.path.exists(params["work"]+'edits/'):
+        sys.exit("\terror: could not find edits/ folder in working directory")
+
+    ## make output folder for clusters
+    if not os.path.exists(params["work"]+'clust'+params["wclust"]):
+        os.makedirs(params["work"]+'clust'+params["wclust"])
+    outfolder = params["work"]+'clust'+str(params["wclust"])
+    if not os.path.exists(params["work"]+'stats'):
+        os.makedirs(params["work"]+'stats')
+
+    ## remake option... in development"
     if remake:
         for ufile in glob.glob(outfolder+"/*.u"):
-            infile = open(ufile).readlines()
+            #infile = open(ufile).readlines()
+            ## delete the last line in the file that was probably
+            ## not completely written
             cmd = "/bin/sed '$d' < " + ufile + " > tempfile"
-            os.system(cmd)
+            subprocess.call(cmd, shell=True) ##os.system(cmd)
+            ## make a backup b/c this isn't tested enough yet
             cmd = "/bin/mv "+ufile+" "+ufile+".backup"
             os.system(cmd)
+            ## replace original that is backed up with the new file
+            ## that has the last line removed.
             cmd = "/bin/mv tempfile "+ufile
             os.system(cmd)
 
-    FS = []
+    dfiles = []   ## FS
 
-    " if not only 1 sample "
-    if len(glob.glob(WORK+"edits/"+subset+"*.edit*")) > 1:  
-        for f in glob.glob(WORK+"edits/"+subset+"*.edit*"):
-            " append files to list if not already clustered or empty"
-            if not os.path.exists(outfolder+"/"+f.replace(".edit",".clustS.gz")):
-                size = os.stat(f)
+    ## if not only 1 sample "
+    if len(glob.glob(params["work"]+"edits/"+params["subset"]+"*.edit*")) > 1:  
+        for efile in glob.glob(params["work"]+"edits/"+\
+                               params["subset"]+"*.edit*"):
+            ## append files to list if not already clustered or empty"
+            if not os.path.exists(outfolder+"/"+efile.\
+                   replace(".edit", ".clustS.gz")):
+                size = os.stat(efile)
                 if size.st_size > 0:
-                    FS.append(f)
+                    dfiles.append(efile)
                 else:
-                    print "excluding "+str(f)+" file is empty"
+                    print "excluding "+str(efile)+" file is empty"
             else:
-                print f.replace(".edit",".clustS")+" already exists"
-        " arranges files by decreasing size for fast clustering order"
-        for i in range(len(FS)):
-            statinfo = os.stat(FS[i])
-            FS[i] = FS[i],statinfo.st_size
-        FS.sort(key=operator.itemgetter(1), reverse = True)
-        FS = [i[0] for i in FS]
+                print efile.replace(".edit", ".clustS")+" already exists"
+        ## " arranges files by decreasing size for fast clustering order"
+        for efile in range(len(dfiles)):
+            statinfo = os.stat(dfiles[efile])
+            dfiles[efile] = dfiles[efile], statinfo.st_size
+        dfiles.sort(key=operator.itemgetter(1), reverse=True)
+        dfiles = [i[0] for i in dfiles]
 
-    elif len(glob.glob(WORK+"edits/"+subset+"*.edit*")) == 1:
-        f = glob.glob(WORK+"edits/"+subset+"*.edit*")
-        size = os.stat(f[0])
+    ## if only one files
+    elif len(glob.glob(params["work"]+"edits/"+params["subset"]+\
+                                               "*.edit*")) == 1:
+        dfiles = glob.glob(params["work"]+"edits/"+params["subset"]+"*.edit*")
+        size = os.stat(dfiles[0])
+        ## check that the file is not empty
         if size.st_size > 0:
-            FS = f
+            pass
         else:
-            print "excluding "+f[0]+" file is empty"
+            print "excluding "+dfiles[0]+" file is empty"
     else:
         print "\tNo .edit files found in edits/ dir."
 
-    sys.stderr.write("\n\tde-replicating files for clustering...\n")
+    if not quiet:
+        sys.stderr.write("\n\tde-replicating files for clustering...\n")
 
-    """ do not split big files if using 64-bit Usearch,
-    or if using Vsearch, else do it to avoid 4GB limit of 32-bit usearch"""
+    ## do not split big files if using 64-bit Usearch,
+    ## or if using Vsearch, else do it to avoid 4GB limit of 32-bit usearch"""
 
-    if "vsearch" not in vsearch:
+    if "vsearch" not in params["vsearch"]:
         print '\n\tsplitting big files'
-        splitbigfilesforderep(FS, vsearch, datatype, minuniq)
+        splitbigfilesforderep(dfiles, params)
 
-    " load work queue"
+    ## load work queue"
     work_queue = multiprocessing.Queue()
     result_queue = multiprocessing.Queue()
 
-    " perform function 'final' on files in FS list "
+    ## perform function 'final' on files in dfiles list "
     submitted = {}
     fileno = 1
 
+    ## if not reconstructing unfinished clusters
     if not remake:
-        if threads == 0:
+        if params["threads"] == 0:
             nthreads = 'all'
         else:
-            nthreads =threads
-        np = min(parallel,len(FS))
-        sys.stderr.write("\n\tstep 3: within-sample clustering of "+\
-                         `len(FS)`+" samples at \n\t        "+`wclust`+\
-                         " similarity. Running "+`np`+" parallel jobs\n\t"+\
-                         " \twith up to "+`nthreads`+" threads per job."+\
-                         " If needed, \n\t\tadjust to avoid CPU and MEM limits\n\n")
+            nthreads = params["threads"]
+        nproc = min(params["parallel"], len(dfiles))
+        if not quiet:
+            sys.stderr.write("\n\tstep 3: within-sample clustering of "+\
+                         str(len(dfiles))+" samples at \n\t        "+\
+                         str(params["wclust"])+\
+                         " similarity. Running "+str(nproc)+\
+                         " parallel jobs\n\t"+\
+                         " \twith up to "+str(nthreads)+" threads per job."+\
+                         " If needed, \n\t\tadjust to avoid CPU and"+\
+                         " MEM limits\n\n")
     else:
-        sys.stderr.write("\n\tstep 3: rebuilding clusters from unfinished step 3 files\n")
+        sys.stderr.write("\n\tstep 3: rebuilding clusters "+\
+                          "from unfinished step 3 files\n")
 
-    for handle in FS:
-        if outfolder+"/"+handle.split("/")[-1].replace(".edit",".clustS.gz") not in glob.glob(outfolder+"/*"):
-            work_queue.put([vsearch,outfolder,handle,wclust,mindepth,
-                            parallel,muscle,datatype,fileno, w1, w2, 
-                            WORK, minuniq, MASK, threads, remake])
+    for handle in dfiles:
+        if outfolder+"/"+handle.split("/")[-1].replace(".edit", ".clustS.gz")\
+                    not in glob.glob(outfolder+"/*"):
+            work_queue.put([params, outfolder, handle, fileno, remake, quiet])
+            # vsearch,outfolder,handle,wclust,mindepth,
+            #                 parallel,muscle,datatype,fileno, w1, w2, 
+            #                 WORK, minuniq, MASK, threads, remake])
             submitted[handle] = 1
             fileno += 1
         else:
-            print "\tskipping "+handle.split("/")[-1].replace(".edit",".clustS.gz")+\
-                  ' already exists in '+WORK+outfolder.split("/")[-1]
+            print "\tskipping "+handle.split("/")[-1].\
+                                replace(".edit", ".clustS.gz")+\
+                  ' already exists in '+params["work"]+outfolder.split("/")[-1]
 
-    " create a queue to pass to workers to store the results"
+    ## create a queue to pass to workers to store the results"
     jobs = []
-    for i in range( min(submitted,parallel) ):
+    for _ in range(min(submitted, params["parallel"])):
         worker = Worker(work_queue, result_queue, final)
         jobs.append(worker)
         worker.start()
     for j in jobs:
         j.join()
 
-    " output statistics on depth of coverage"
-    outstats = open(WORK+"stats/s3.clusters.txt",'a')
-    print >>outstats, '\n'+'\t'.join(['taxa','total','dpt.me',
-                                      'dpt.sd','d>'+`mindepth-1`+'.tot',
-                                      'd>'+`mindepth-1`+'.me',
-                                      'd>'+`mindepth-1`+'.sd',
+    ## output statistics on depth of coverage"
+    outstats = open(params["work"]+"stats/s3.clusters.txt", 'a')
+    print >>outstats, '\n'+'\t'.join(['taxa', 'total', 'dpt.me',
+                                      'dpt.sd', 'd>'+\
+                                      str(params["mindepth"]-1)+'.tot',
+                                      'd>'+str(params["mindepth"]-1)+'.me',
+                                      'd>'+str(params["mindepth"]-1)+'.sd',
                                       'badpairs'])
 
-    RES = []
-    HISTO = []
-    #for ff in glob.glob(outfolder+"/.temp.*"):
-    for ff in FS:
-        end = ff.split("/")[-1].replace(".edit","")
-        ff = outfolder+"/.temp."+end
-        if os.path.exists(ff):
-            line = open(ff).readlines()
-            RES.append(line[0].strip().split("\t"))
-            HISTO.append([line[0].split("\t")[0],"".join(line[1:])])
-            os.remove(ff)
-    RES.sort(key=lambda x:x[0])
-    HISTO.sort(key=lambda x:x[0])
+    res = []
+    histo = []
+    for ffile in dfiles:
+        end = ffile.split("/")[-1].replace(".edit", "")
+        ffile = outfolder+"/.temp."+end
+        if os.path.exists(ffile):
+            line = open(ffile).readlines()
+            res.append(line[0].strip().split("\t"))
+            histo.append([line[0].split("\t")[0], "".join(line[1:])])
+            os.remove(ffile)
+    res.sort(key=lambda x: x[0])
+    histo.sort(key=lambda x: x[0])
     
-    for i in RES:
+    for i in res:
         print >>outstats, "\t".join(i)
     
     print >>outstats, """
@@ -729,22 +817,22 @@ def main(WORK, parallel, wclust, mindepth,
     ## badpairs = mismatched 1st & 2nd reads (only for paired ddRAD data)\n\nHISTOGRAMS\n
     """
 
-    for i in HISTO:
+    for i in histo:
         print >>outstats, "sample: "+i[0]+"\n"+i[1]
     
-    
     outstats.close()
-    for handle in FS:
+    for handle in dfiles:
         nothere = 0
-        try: submitted[handle]
+        try: 
+            submitted[handle]
         except KeyError:
             nothere = 1
         if not nothere:
             if submitted[handle]:
-                if os.path.exists(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz")):
-                    cmd = "/bin/rm "+outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz")
-                    subprocess.call(cmd, shell=True)
-
+                if os.path.exists(outfolder+"/"+handle.split("/")[-1].\
+                                  replace(".edit", ".clust.gz")):
+                    os.remove(outfolder+"/"+handle.split("/")[-1].\
+                              replace(".edit", ".clust.gz"))
 
 if __name__ == "__main__":
     main()
