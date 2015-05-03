@@ -235,10 +235,11 @@ def barmatch(params, raws, bcdmap, longbar, num, quiet):
                 misses["_"] += 1
 
 
-        ## write to file every 50Kth read"
+        ## write to file every 500Kth read"
         ## only writes reads that match to a barcode in 
         ## C by less than some N differences "
-        if not locus % 50000:
+        if not locus % 500000:
+            print 'printing', num
             barcodehits, match2, dsort1, dsort2 = writetofile(params,
                                                       bcdmap, barcodehits,
                                                       dsort1, dsort2, 
@@ -311,7 +312,7 @@ def writetofile(params, bcdmap, barcodehits, dsort1,
 
 
 
-def writefunc(params, quiet): 
+def writefunc(params, quiet):
     "create barcode dictionary"
     #GLOB,Parallel,Bcode,CUT,datatype,maxmismatch,WORK):
 
@@ -324,7 +325,7 @@ def writefunc(params, quiet):
     codes = [line.strip().split() for line in codetable.readlines()]
     bcdmap = {}
     for line in codes:
-        if line[0]:
+        if line:
             bcdmap[line[1].strip().upper()] = line[0]
 
     ## find longest barcode "
@@ -476,7 +477,8 @@ def main(params, quiet):
 
     ## do barcode sorting
     writefunc(params, quiet)
-    names = [line.split()[0] for line in open(params["bcode"]).readlines()]
+    names = [line.split()[0] for line \
+             in open(params["bcode"]).readlines() if line]
 
     ## concatenate temp files "
     for name in names:
