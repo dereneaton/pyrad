@@ -407,7 +407,7 @@ def main(Bcode, GLOB, CUT, datatype, Parallel, maxmismatch, WORK):
     if os.path.exists(WORK+'fastq'):
         if os.listdir(WORK+'fastq'):
             print ("\n\tfastq/ directory in working directory contains data, move/remove it before running step 1\n")
-            sys.exit()
+            #sys.exit()
     else:
         os.makedirs(WORK+'fastq')
 
@@ -425,23 +425,11 @@ def main(Bcode, GLOB, CUT, datatype, Parallel, maxmismatch, WORK):
     statout.write("\t".join(["file    ","Nreads","cut_found","bar_matched"])+"\n")
     statout.close()
 
-    " DO THE BARCODE SORTING "
+    ## DO THE BARCODE SORTING 
     writefunc(GLOB, Parallel, Bcode, CUT, datatype, maxmismatch, WORK)
-    names = [line.split()[0] for line in open(Bcode).readlines() if line]
+    names = [line.strip().split()[0] for line in open(Bcode,'r').readlines() if line.strip()]
 
-    # " remove tiny sorted temp files "
-    # if len(glob.glob(GLOB)) > 1:
-    #     for name in names:
-    #         if len(glob.glob(WORK+"fastq/."+name+"*")) > 0:
-    #             "remove very small files, probably errors"
-    #             for ff in glob.glob(WORK+'fastq/.'+name+"*"):
-    #                 statinfo = os.stat(ff)
-    #                 s = statinfo.st_size
-    #                 if s < 1000:
-    #                     os.remove(ff)
-                        
-
-    " concatenate temp files "
+    ## concatenate temp files
     for name in names:
         if len(glob.glob(WORK+"fastq/."+name+"*")) > 0:
             os.system("/bin/cat "+WORK+"fastq/."+name+".temp_R1_*.gz > "+WORK+"fastq/"+name+"_R1.fq.gz")
