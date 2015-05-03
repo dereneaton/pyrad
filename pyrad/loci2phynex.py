@@ -77,10 +77,13 @@ def make(params, names, longname, formats):
             a = line.lstrip().rstrip().split(" ")
             idict[a[0]] = a[-1]
 
+        nameorder = idict.keys()
+        nameorder.sort()
+
         n = 0
         sz = 100
         while n < len(a[-1]):
-            for tax in idict:
+            for tax in nameorder:
                 print >>nexout, "  "+tax+" "*\
                                 ((longname-len(tax))+3)+\
                                 idict[tax][n:n+sz]
