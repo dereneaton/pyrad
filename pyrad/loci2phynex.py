@@ -1,78 +1,89 @@
 #!/usr/bin/env python2
+""" make phylip or nexus formatted data outputs from .loci file """
 
 import numpy as np
 
-## TODO: Make faster and reduce memory load...
-def make(WORK, outname, names, longname, formats):
-    " order names "
+def make(params, names, longname, formats):
+    """ make outputs """
+
+    ## make sure name is a list and sort it
     names = list(names)
     names.sort()
     
-    " read in loci file "
-    finalfile = open(WORK+"outfiles/"+outname+".loci").read() 
+    ## read in the loci file "
+    finalfile = open(params["work"]+"outfiles/"+\
+                     params["outname"]+".loci").read() 
 
-    " dict for saving the full matrix "
-    F = {}
-    for name in names:
-        F[name] = []
+    ## dict for saving the full matrix
+    fdict = {name:[] for name in names}
 
-    " remove empty column sites and append edited seqs to dict F "
-    blockend = 0
+    ## uncomment and use this if you want to save block 
+    ## information for partitioning loci
+    ## blocked = 0
+
+    ## remove empty column sites from matrix
+    ## and append edited seqs fdict
     for loc in finalfile.split("//")[:-1]:
-        anames = [i.split()[0][1:] for i in loc.strip().split("\n") if ">" in i]
-        array = np.array([tuple(i.split()[-1]) for i in loc.strip().split("\n") if ">" in i])
+        anames = [i.split()[0][1:] for i in \
+                  loc.strip().split("\n") if ">" in i]
 
-        ## which columns are empty
-        emps = [i for i in range(len(array.T)) if \
-                np.all([j in ['N','-'] for j in array.T[i]])]
+        arrayed = np.array([tuple(i.split()[-1]) for i in \
+                               loc.strip().split("\n") if ">" in i])
 
-        ## delete those columns
-        narray = np.delete(array, emps, 1)
-        minray = len("".join(narray[0]).replace("x","n").replace("n",""))
+        ## create mask for columns that are empty or 
+        ## that are paired-end separators (compatible w/ pyrad v2 and v3)
+        mask = [i for i in range(len(arrayed.T)) if not \
+                  np.all([j in list("N-nxX") for j in arrayed.T[i]])]
 
-        ## print block info (used to partition by locus)
+        ## uncomment to print block info (used to partition by locus)
         #blockend += minray
         #print blockend,
 
         ## append data to dict
         for name in names:
             if name in anames:
-                F[name] += "".join(narray[anames.index(name)]).replace("x","n").replace("n","")
+                fdict[name] += "".join(arrayed[anames.index(name), mask])
             else:
-                F[name] += "".join(["N"]*minray)  
+                fdict[name] += "".join(["N"]*len(arrayed[0, mask]))
 
-    " print out .PHY file "
-    superout = open(WORK+"outfiles/"+outname+".phy",'w')
-    print >>superout, len(F), len("".join(F[names[0]]).replace("x",""))
-
+    #############################
+    ## print out .PHY file by default
+    superout = open(params["work"]+"outfiles/"+\
+                    params["outname"]+".phy", 'w')
+    print >>superout, len(fdict), len("".join(fdict[names[0]]))
     for name in names:
-        print >>superout, name+(" "*((longname+3)-len(name)))+"".join(F[name])
+        print >>superout, name+(" "*((longname+3)-\
+                          len(name)))+"".join(fdict[name])
     superout.close()
 
-
+    #############################
+    ## print out interleaved .NEX file
     if 'n' in formats:
-        " make nexus output "
-        data   = open(WORK+"outfiles/"+outname+".phy").readlines() 
-        nexout = open(WORK+"outfiles/"+outname+".nex", 'w')
+        data = open(params["work"]+"outfiles/"+\
+                      params["outname"]+".phy").readlines() 
+        nexout = open(params["work"]+"outfiles/"+\
+                      params["outname"]+".nex", 'w')
 
-        ntax,nchar = data[0].strip().split(" ")
+        ntax, nchar = data[0].strip().split(" ")
 
         print >>nexout, "#NEXUS"
         print >>nexout, "BEGIN DATA;"
-        print >>nexout, "  DIMENSIONS NTAX=%s NCHAR=%s;" % (ntax,nchar)
+        print >>nexout, "  DIMENSIONS NTAX=%s NCHAR=%s;" % (ntax, nchar)
         print >>nexout, "  FORMAT DATATYPE=DNA MISSING=N GAP=- INTERLEAVE=YES;"
         print >>nexout, "  MATRIX"
 
-        L = {}
+        idict = {}
         for line in data[1:]:
             a = line.lstrip().rstrip().split(" ")
-            L[a[0]] = a[-1]
+            idict[a[0]] = a[-1]
 
-        n=0
+        n = 0
         sz = 100
-        while n<len(a[-1]):
-            for tax in L:
-                print >>nexout, "  "+tax+" "*((longname-len(tax))+3)+L[tax][n:n+sz]
+        while n < len(a[-1]):
+            for tax in idict:
+                print >>nexout, "  "+tax+" "*\
+                                ((longname-len(tax))+3)+\
+                                idict[tax][n:n+sz]
             n += sz
             print >>nexout, ""
         print >>nexout, ';'
@@ -81,4 +92,4 @@ def make(WORK, outname, names, longname, formats):
         
 
 if __name__ == "__main__":
-    make(WORK, outfile, names, longname, formats)
+    make(params, names, longname, format)
