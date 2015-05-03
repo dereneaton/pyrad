@@ -34,8 +34,8 @@ Python requirements
  * scipy
 
 
-Example usage
--------
+Example usage (see tutorials)
+^^^^^^^^^^^^^^^^^^^
 ::
 
     >>> pyrad -n  
