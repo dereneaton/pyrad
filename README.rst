@@ -30,7 +30,7 @@ Using pip you can install pyrad so that it can be called from anywhere on your m
 
     cd pyrad
     sudo pip install .
-    
+    pyrad -h    
 
 or alternatively, without installation you can simply use python to call pyrad from its location:
 
