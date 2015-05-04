@@ -44,7 +44,11 @@ def make(params, names, longname, formats):
             if name in anames:
                 fdict[name] += "".join(arrayed[anames.index(name), mask])
             else:
-                fdict[name] += "".join(["N"]*len(arrayed[0, mask]))
+                try:
+                    fdict[name] += "".join(["N"]*len(arrayed[0, mask]))
+                except IndexError:
+                    print arrayed
+                    print mask
 
     #############################
     ## print out .PHY file by default

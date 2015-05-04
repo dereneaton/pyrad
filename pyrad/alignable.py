@@ -231,7 +231,7 @@ def alignFUNC(infile, minspecies, ingroup,
     " read in clust file 2 lines at a time"
     k = izip(*[iter(f)]*2)
     while 1:
-        D = P = S = I = notes = ""
+        D = P = S = I = SS = notes = ""
         try: d = k.next()
         except StopIteration : break
         locus += 1
@@ -351,8 +351,14 @@ def alignFUNC(infile, minspecies, ingroup,
             "alphabetize names"
             zz.sort()
 
+            if SM1 and FM1:
+                if SM1-FM1 < 10:
+                    SS = "@"
+            if SM2 and FM2:
+                if SM2-FM2 < 10:
+                    SS = "@"                
             " filter for duplicates or paralogs, then SNPs and Indels "
-            if not (D or P):
+            if not (D or P or SS):
 
                 " SNP filter "
                 if 'pair' in datatype:
@@ -391,10 +397,11 @@ def alignFUNC(infile, minspecies, ingroup,
                               'nnnn'+second[FM2:SM2].upper()
                     print >>aout, '//'+' '*(longname+3)+snp1[FM1:SM1]+"    "+snp2[FM2:SM2]+"|"+notes
                 else:
-                    for x,y in zz:
-                        space = ((longname+5)-len(x))
-                        print >>aout, x+" "*space + y[FM1:SM1].upper()
-                    print >>aout, '//'+' '*(longname+3)+"".join(snpsite[FM1:SM1])+"|"+notes
+                    if SM1-FM1 > 10:
+                        for x,y in zz:
+                            space = ((longname+5)-len(x))
+                            print >>aout, x+" "*space + y[FM1:SM1].upper()
+                        print >>aout, '//'+' '*(longname+3)+"".join(snpsite[FM1:SM1])+"|"+notes
                     
             else:
                 " write to exclude file "
@@ -733,7 +740,12 @@ def main(outgroup, minspecies, outname,
             print "\twriting nexus file"
         if 'p' in formats:
             print "\twriting phylip file"
-        loci2phynex.make(WORK,outname,names,longname, formats)
+        ## temp fix
+        params = {}
+        params["work"] = WORK
+        params["outname"] = outname
+        loci2phynex.make(params, names, longname, formats)
+        #loci2phynex.make(WORK,outname,names,longname, formats)
 
     if 'f' in formats:
         print "\tWriting gphocs file"
