@@ -528,7 +528,6 @@ def filter3(params, consens, heteros, sloc):
     for key in checkkeys:
         if counted_h[key] < max(2, round(total*len(sloc[0])*params["E"])):
             counted_h.pop(key)
-            #print counted_h, key, 'popped'
 
     ## only allow as many alleles as expected given ploidy
     exceedmaxploid = 0
