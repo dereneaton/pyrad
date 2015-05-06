@@ -118,9 +118,19 @@ def rawedit(params, infile, quiet):
         offset = int(params["Q"])
         phred = [x-offset for x in qscore]
         seq = ["N"]*len(phred)
+        
+        ## fix cut sites to be error free
+        liseq = list(iseq)
+        liseq[:len(cut1)] = list(cut1)
+        iseq = "".join(liseq)
+        if "merge" in params["datatype"]:
+            liseq = list(iseq)
+            liseq[-len(cut1):] = list(fullcomp(cut1))
+            iseq = "".join(liseq)
+
         for base in range(len(phred)):
-            if base >= len(cut1):              ## don't quality check cut site
-                if phred[base] >= 20:          ## quality threshold
+            if base >= len(cut1):          ## don't quality check cut site
+                if phred[base] >= 20:      ## quality threshold
                     try: 
                         seq[base] = iseq[base]
                     except IndexError:
@@ -133,7 +143,7 @@ def rawedit(params, infile, quiet):
                 else:
                     seq[base] = cut1[base]
 
-        if not orig % 5000:
+        if not orig % 50000:
             if params["trimkeep"]:
                 ## write full length and fragment reads
                 with open(params["work"]+'edits/'+str(fname)+\
@@ -195,7 +205,6 @@ def rawedit(params, infile, quiet):
 
 def main(params, fastqs, quiet):
     """ runs the main script """
-    ##Parallel, WORK, FQs, CUT, pN, Q, strict, trimkeep, datatype):
 
     if not quiet:
         print >>sys.stderr, "\n\tstep 2: editing raw reads \n\t",
