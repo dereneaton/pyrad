@@ -4,7 +4,7 @@
 
 import scipy.stats
 import scipy.optimize
-import numpy
+import numpy as np
 import itertools
 import sys
 import glob
@@ -26,57 +26,70 @@ def get_freqs(stack):
     totalcount = Counter()
     for stackcount in stack:
         totalcount += stackcount
-    return [totalcount["A"]/float(sump),
-            totalcount["T"]/float(sump),
-            totalcount["G"]/float(sump),
-            totalcount["C"]/float(sump)]
+    basefreqs = np.array([totalcount["A"],
+                          totalcount["T"],
+                          totalcount["G"],
+                          totalcount["C"]])/float(sump)
+    return basefreqs
 
 
-def likelihood1(errors, base_frequencies, uniqstack):
+def likelihood1(errors, base_frequencies, stacks):
     """probability homozygous"""
-    homo = []
-    uniqstackl = [int(i) for i in uniqstack[1:-1].strip().split(',')]
-    total = sum(uniqstackl)
-    for num, thisbase in enumerate(uniqstackl):
-        p = base_frequencies[num]
-        b = scipy.stats.binom.pmf(total-thisbase, total, errors)
-        homo.append(p*b)
-    return sum(homo)
+    ## make sure base_frequencies are in the right order
+    #print uniqstackl.sum()-uniqstack, uniqstackl.sum(), 0.001
+    tot = np.array([stacks.sum(axis=1)]*4).T
+    b = scipy.stats.binom.pmf(tot-stacks, tot, errors)
+    return np.sum(base_frequencies*b, axis=1)
 
 
-def likelihood2(errors, base_frequencies, uniqstack):
+def likelihood2(errors, base_frequencies, stacks):
     """probability of heterozygous"""
-    hetero = []
-    uniqstackl = [int(i) for i in uniqstack[1:-1].strip().split(',')]    
-    total = sum(uniqstackl)
-    for num, thisbase in enumerate(uniqstackl):
-        for j, k in enumerate(uniqstackl):
-            if j > num:
-                one = 2.*base_frequencies[num]*base_frequencies[j]
-                two = scipy.stats.binom.pmf(total-thisbase-k, 
-                                            total,
-                                            (2.*errors)/3.)
-                three = scipy.stats.binom.pmf(thisbase, k+thisbase, 0.5)
-                four = 1.-(sum([q**2. for q in base_frequencies]))
-                hetero.append(one*two*(three/four))
-    return sum(hetero)
+
+    returnlist = []
+    for stackl in stacks:
+        spair = list(itertools.combinations(stackl, 2))
+        bpair = list(itertools.combinations(base_frequencies, 2))
+        one = 2.*np.product(bpair, axis=1)
+        tot = stackl.sum() #np.sum(spair, axis=1)
+        atwo = tot - np.array([i[0] for i in spair]) -\
+                     np.array([i[1] for i in spair])
+        two = scipy.stats.binom.pmf(atwo, tot, (2.*errors)/3.)
+        three = scipy.stats.binom.pmf(np.array([i[0] for i in spair]),
+                                      np.array([i[0]+i[1] for i in spair]),
+                                      0.5)
+        four = 1.-np.sum(base_frequencies**2)
+        returnlist.append(np.sum(one*two*(three/four)))
+    return np.array(returnlist)
+
+    # total = sum(uniqstackl)
+    # for num, thisbase in enumerate(uniqstackl):
+    #     for j, k in enumerate(uniqstackl):
+    #         if j > num:
+    #             one = 2.*base_frequencies[num]*base_frequencies[j]
+    #             two = scipy.stats.binom.pmf(total-thisbase-k, 
+    #                                         total,
+    #                                         (2.*errors)/3.)
+    #             three = scipy.stats.binom.pmf(thisbase, k+thisbase, 0.5)
+    #             four = 1.-(sum([q**2. for q in base_frequencies]))
+    #             hetero.append(one*two*(three/four))
+    # return sum(hetero)
 
 
-def get_diploid_lik(starting_params, base_frequencies, tabled_stacks):
+
+def get_diploid_lik(starting_params, base_frequencies, stacks, stackcounts):
     """ Log likelihood score given values [H,E] """
     hetero = starting_params[0]
     errors = starting_params[1]
-    listofliks = []
     if (hetero <= 0.) or (errors <= 0.):
-        score = numpy.exp(100)
+        score = np.exp(100)
     else:
-        for uniqstack in tabled_stacks:
-            loglik = ((1.-hetero)*\
-                     likelihood1(errors, base_frequencies, uniqstack))+\
-                     (hetero*likelihood2(errors, base_frequencies, uniqstack))
-            if loglik > 0:
-                listofliks.append(tabled_stacks[uniqstack]*numpy.log(loglik))
-        score = -sum(listofliks)
+        ## get likelihood for all sites
+        lik1 = (1.-hetero)*likelihood1(errors, base_frequencies, stacks)
+        lik2 = (hetero)*likelihood2(errors, base_frequencies, stacks)
+        liks = lik1+lik2
+        logliks = np.log(liks[liks>0])*stackcounts[liks>0]
+        #logliks = np.log(liks)*stackcounts
+        score = -logliks.sum()
     return score
 
 
@@ -85,14 +98,14 @@ def get_haploid_lik(errors, base_frequencies, tabled_stacks):
     hetero = 0.
     listofliks = []
     if errors <= 0.:
-        score = numpy.exp(100)
+        score = np.exp(100)
     else:
         for uniqstack in tabled_stacks:
             loglik = ((1.-hetero)*\
                      likelihood1(errors, base_frequencies, uniqstack))+\
                      (hetero*likelihood2(errors, base_frequencies, uniqstack))
             if loglik > 0:
-                listofliks.append(tabled_stacks[uniqstack]*numpy.log(loglik))
+                listofliks.append(tabled_stacks[uniqstack]*np.log(loglik))
         score = -sum(listofliks)
     return score
 
@@ -102,6 +115,7 @@ def table_c(stack):
         greatly speeds up Likelihood calculation"""
     countedstacks = []
     for stackcount in stack:
+        ## convert to string for use with counter
         countedstacks.append(str([stackcount["A"],
                                   stackcount["T"],
                                   stackcount["G"],
@@ -167,11 +181,11 @@ def consensus(params, handle, cut1, cut2):
                 thisstack[seq] = thisstack[seq][len(cut1):]
         
         if len(thisstack) >= params["minsamp"]:
-            arrayed = numpy.array(thisstack)
+            arrayed = np.array(thisstack)
             ## make list for each site in sequences
             res = [Counter(seq) for seq in arrayed.T]
             ## exclude sites with indels
-            stacked += [i for i in res if not i.has_key("-")]
+            stacked += [i for i in res if "-" not in i]
     return stacked
 
 
@@ -189,6 +203,14 @@ def optim(params, handle, cut1, cut2, quiet):
 
     ## get tabled counts of base patterns
     tabled_stacks = table_c(stacked)
+
+    def toarray(uniqstack):
+        """ converts string lists to arrays"""
+        return np.array([int(i) for i in uniqstack[1:-1].strip().split(',')])
+
+    stacks = np.array([toarray(i) for i in tabled_stacks.keys()])
+    stackcounts = np.array(tabled_stacks.values())
+
     del stacked
 
     ## if data are haploid fix H to 0
@@ -197,14 +219,18 @@ def optim(params, handle, cut1, cut2, quiet):
         hetero = 0.
         errors = scipy.optimize.fmin(LL_haploid, 
                                 starting_params,
-                                (base_frequencies, tabled_stacks),
+                                (base_frequencies, 
+                                    stacks,
+                                    stackcounts),
                                 disp=False,
                                 full_output=False)
     else:
         starting_params = [0.01, 0.001]
         hetero, errors = scipy.optimize.fmin(get_diploid_lik,
                                              starting_params,
-                                             (base_frequencies, tabled_stacks),
+                                             (base_frequencies, 
+                                                stacks,
+                                                stackcounts),
                                              disp=False,
                                              full_output=False)
     outfile = open(params["work"]+"stats/."+name+".temp", 'w')
