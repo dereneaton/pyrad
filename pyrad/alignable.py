@@ -465,13 +465,13 @@ def writetokeep(params, snpsite, zz, longname,
             print >>aout, name+" "*space+first[fm1:sm1].upper()+\
                               'nnnn'+second[fm2:sm2].upper()
         print >>aout, '//'+' '*(longname+3)+snp1[fm1:sm1]+\
-                      "    "+snp2[fm2:sm2]+"|"+olocus
+                      "    "+snp2[fm2:sm2]+"|"+olocus+"|"
     else:
         for name, seq in zz:
             space = ((longname+5)-len(name))
             print >>aout, name+" "*space + seq[fm1:sm1].upper()
         print >>aout, '//'+' '*(longname+3)+\
-                      "".join(snpsite[fm1:sm1])+"|"+olocus
+                      "".join(snpsite[fm1:sm1])+"|"+olocus+"|"
 
 
 
