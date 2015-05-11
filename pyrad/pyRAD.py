@@ -599,7 +599,7 @@ if __name__ == "__main__":
     ## parse the command line arguments
     PARSER = OptionParser(prog="pyRAD", 
                           usage="%prog [options]",
-                          version="%prog 3.1.0a0")
+                          version="%prog 3.1.0a1")
 
     PARSER.add_option('-p', action="store", 
                             type="string",
