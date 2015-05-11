@@ -117,18 +117,23 @@ def rawedit(params, infile, quiet):
         qscore = [ord(i) for i in quart[3].strip('\n')]  ## ph
         offset = int(params["Q"])
         phred = [x-offset for x in qscore]
-        seq = ["N"]*len(phred)
-        
+
         ## fix cut sites to be error free
         liseq = list(iseq)
         liseq[:len(cut1)] = list(cut1)
         iseq = "".join(liseq)
-        if "merge" in params["datatype"]:
-            liseq = list(iseq)
-            liseq[-len(cut1):] = list(fullcomp(cut1))
-            iseq = "".join(liseq)
 
-        for base in range(len(phred)):
+        ## trim off farside cutsite in merged reads --
+        ## too messy to clean up usually
+        if "merge" in params["datatype"]:
+            ## check if two cutters
+            if "," in params["cut"]:
+                iseq = iseq[:-(len(cut2)+1)]
+            else:
+                iseq = iseq[:-(len(cut1)+1)]
+
+        seq = ["N"]*len(iseq)
+        for base in range(len(seq)):
             if base >= len(cut1):          ## don't quality check cut site
                 if phred[base] >= 20:      ## quality threshold
                     try: 
