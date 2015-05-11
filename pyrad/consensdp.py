@@ -542,15 +542,16 @@ def filter3(params, consens, heteros, sloc):
         ## set the upper vs lower case for bases to save 
         ## the phased order of diploid alleles
         #if params["haplos"] == 2:
-        elif len(counted_h) == 2:
+        #elif len(counted_h) == 2:
             ## can only phase if two alleles are detected 
             #print counted_h.keys()
             #if all([i[0] != i[1] for i in range(len(counted_h.iterkeys()))])
             #if all([i[0] != i[1] for i in counted_h.keys()]):
             #    print 'yes'
-            if all([counted_h.keys()[0][i] != counted_h.keys()[1][i] \
-                    for i in range(len(counted_h.keys()[0]))]):
-                consens = findalleles(consens, heteros, counted_h, sloc)
+            ## TODO: correct alleles counting for .alleles output
+            #if all([counted_h.keys()[0][i] != counted_h.keys()[1][i] \
+            #        for i in range(len(counted_h.keys()[0]))]):
+            #    consens = findalleles(consens, heteros, counted_h, sloc)
             ## else... could filter if alleles are not detected
             ## after removing low copy possible error alleles
     return consens, exceedmaxploid
