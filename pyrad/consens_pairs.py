@@ -11,7 +11,7 @@ import os
 import operator
 import gzip
 from potpour import Worker
-from consensdp import binomprobr, simpleconsens, hetero, unhetero, uplow, findalleles, removerepeat_Ns
+from consensdp import binomprobr, simpleconsensus, hetero, unhetero, uplow, findalleles, removerepeat_Ns
 
 
 def stack(D):
