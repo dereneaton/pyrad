@@ -41,7 +41,7 @@ or alternatively, without installation you can simply use python to call pyrad f
 
 Python requirements
 ^^^^^^^^^^^^^^^^^^^
-These will be automatically installed alongside `pyrad`.
+These will be automatically installed alongside `pyrad` when using `pip`.
 
  * numpy
  * scipy
