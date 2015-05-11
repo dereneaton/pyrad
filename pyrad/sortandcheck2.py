@@ -239,7 +239,6 @@ def barmatch(params, raws, bcdmap, longbar, num, quiet):
         ## only writes reads that match to a barcode in 
         ## C by less than some N differences "
         if not locus % 500000:
-            print 'printing', num
             barcodehits, match2, dsort1, dsort2 = writetofile(params,
                                                       bcdmap, barcodehits,
                                                       dsort1, dsort2, 

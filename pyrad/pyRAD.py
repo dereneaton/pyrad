@@ -332,15 +332,17 @@ def step1(params, quiet):
             sys.exit("\tcould not find barcodes file "+ params["bcode"]+\
                      "\n\tcomment out line 3 of params file"+\
                      " or edit path to barcodes file")
+    ## if data are already demultiplexed and in alternate location
+    ## then do nothing but print this message
     if params["floc"]:
         if not quiet:
             sys.stderr.write("\tskipping step 1: line 18 of input file"+\
                              " shows seqs already sorted")
     else:
-        ## if directory as input select all inside
-        if params["glob"]:
-            if params["glob"].endswith("/"):
-                params["glob"] = params["glob"]+"*"
+        ## if directory as input and not floc then select all inside
+        if params["glob"].endswith("/"):
+            params["glob"] = params["glob"]+"*"
+    ## with paths set, run function
     sortandcheck2.main(params, quiet)
 
 
@@ -384,6 +386,7 @@ def step2(params, stripped, quiet):
         editraw_rads.main(params, fastqs, quiet)
 
     else: 
+        ## check for two cutters in ddrad
         if params["datatype"] == 'pairddrad':
             if "," not in params["cut"]:
                 sys.exit("\n\tyou must enter two restriction "+\
