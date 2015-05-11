@@ -54,12 +54,14 @@ def binomprobr(base1, base2, error, het):
     return [bestprob, mjaf, genotypes[probabilities.index(max(probabilities))]]
 
 
-def simpleconsens(base1, base2):
+def simpleconsensus(base1, base2):
     """
     majority consensus calling for sites
     with too low of coverage for
     statistical calling. Only used
-    with 'lowcounts' option.
+    with 'lowcounts' option. Returns 
+    the most common base. Returns consistent
+    alphabetical order for ties.
     """
     #qQn = ['aa','bb','ab']
     maf = base1/(base1+base2)
@@ -543,8 +545,12 @@ def filter3(params, consens, heteros, sloc):
         elif len(counted_h) == 2:
             ## can only phase if two alleles are detected 
             #print counted_h.keys()
+            #if all([i[0] != i[1] for i in range(len(counted_h.iterkeys()))])
+            if all([i[0] != i[1] for i in counted_h.keys()]):
+                print 'yes'
+
             if all([counted_h.keys()[0][i] != counted_h.keys()[1][i] \
-                     for i in range(len(counted_h.keys()[0]))]):
+                    for i in range(len(counted_h.keys()[0]))]):
                 consens = findalleles(consens, heteros, counted_h, sloc)
             ## else... could filter if alleles are not detected
             ## after removing low copy possible error alleles
