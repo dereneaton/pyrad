@@ -465,13 +465,13 @@ def writetokeep(params, snpsite, zz, longname,
             print >>aout, name+" "*space+first[fm1:sm1].upper()+\
                               'nnnn'+second[fm2:sm2].upper()
         print >>aout, '//'+' '*(longname+3)+snp1[fm1:sm1]+\
-                      "    "+snp2[fm2:sm2]+"|"+olocus+"|"
+                      "    "+snp2[fm2:sm2]+"|"+olocus
     else:
         for name, seq in zz:
             space = ((longname+5)-len(name))
             print >>aout, name+" "*space + seq[fm1:sm1].upper()
         print >>aout, '//'+' '*(longname+3)+\
-                      "".join(snpsite[fm1:sm1])+"|"+olocus+"|"
+                      "".join(snpsite[fm1:sm1])+"|"+olocus
 
 
 
@@ -616,7 +616,7 @@ def makelocifile(params):
             if lines.startswith("//"):
                 ## compatibility between pyrad versions 3.0--3.1
                 if "|\n" in lines:
-                    lines = lines.replace("|\n", "|"+str(locicounter)+"\n", 1)
+                    lines = lines.replace("|\n", "|"+str(locicounter)+"|\n", 1)
                 else:
                     ## map filtered locus numbers to unfiltered locus numbers
                     snpstring, olocus = lines.strip().split("|")
