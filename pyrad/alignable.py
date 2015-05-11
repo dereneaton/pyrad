@@ -621,7 +621,7 @@ def makelocifile(params):
                     ## map filtered locus numbers to unfiltered locus numbers
                     snpstring, olocus = lines.strip().split("|")
                     #print olocus, locicounter
-                    lines = snpstring+"|"+str(locicounter)+"\n"
+                    lines = snpstring+"|"+str(locicounter)+"|\n"
                     #dataobj = Locobj(olocus, indeldict)
                     new2olddict[locicounter] = olocus
                 locicounter += 1
