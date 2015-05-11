@@ -546,9 +546,8 @@ def filter3(params, consens, heteros, sloc):
             ## can only phase if two alleles are detected 
             #print counted_h.keys()
             #if all([i[0] != i[1] for i in range(len(counted_h.iterkeys()))])
-            if all([i[0] != i[1] for i in counted_h.keys()]):
-                print 'yes'
-
+            #if all([i[0] != i[1] for i in counted_h.keys()]):
+            #    print 'yes'
             if all([counted_h.keys()[0][i] != counted_h.keys()[1][i] \
                     for i in range(len(counted_h.keys()[0]))]):
                 consens = findalleles(consens, heteros, counted_h, sloc)
