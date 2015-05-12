@@ -342,8 +342,8 @@ def step1(params, quiet):
         ## if directory as input and not floc then select all inside
         if params["glob"].endswith("/"):
             params["glob"] = params["glob"]+"*"
-    ## with paths set, run function
-    sortandcheck2.main(params, quiet)
+        ## with paths set, run function
+        sortandcheck2.main(params, quiet)
 
 
 def step2(params, stripped, quiet):
@@ -351,10 +351,12 @@ def step2(params, stripped, quiet):
 
     ## check alternative fastq location
     if params["floc"]:
-        print >>sys.stderr, "\tsorted .fastq from "+\
+        if params["floc"].endswith("/"):
+            params["floc"] += "*"
+        print >>sys.stderr, "\n\tsorted .fastq from "+\
                             params["floc"]+" being used"
         if len(glob.glob(params["floc"])) < 1:
-            sys.stderr.write("\t... no files found in line 18 location"+\
+            sys.stderr.write("\n\t... no files found in line 18 location"+\
                              ", check required file name formatting\n")
             sys.exit()
         else:
