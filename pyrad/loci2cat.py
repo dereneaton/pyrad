@@ -79,7 +79,7 @@ def make(params, names, quiet):
         old2ids = pickle.load(pickleloc)
         pickleloc.close()
     else:
-        sys.exit("\tno locus map for "+params["outname"]+"data set")
+        sys.exit("\n\tno locus map for "+params["outname"]+"data set")
 
     #print old2ids
 
@@ -167,13 +167,21 @@ def make(params, names, quiet):
         # for tax in fulldat:
         #     print tax, fulldat[tax].seq
 
-        for site in range(len(cut1), len(arrayed.T)):
+        #for site in range(len(cut1), len(arrayed.T)):
+        #print arrayed.T[0:10,:]
+        #print len(arrayed.T)
+        #print len(cut1)
+
+        ## shift up length of cut site
+        for site in range(len(cut1), len(arrayed.T)+len(cut1)):
             xseq = [fulldat[tax].seq[site].upper() if tax in fulldat else "N" \
                                  for tax in names]
             xdat = [fulldat[tax].string[site] if tax in fulldat else \
                                "0,0,0,0" for tax in names]
             print >>outfile, "".join(xseq)+"\t"+"\t".join(xdat)
         #print " "
+        
+    outfile.close()
 
 if __name__ == "__main__":
     make(params, names, quiet)
