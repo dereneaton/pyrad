@@ -481,11 +481,11 @@ def main(params, quiet):
 
     ## concatenate temp files "
     for name in names:
-        cmd = "cat "+params["work"]+"fastq/."+name+"*_R1_* > "+\
+        cmd = "cat "+params["work"]+"fastq/."+name+".temp_R1_* > "+\
                      params["work"]+"fastq/"+name+"_R1.fq.gz"
         subprocess.call(cmd, shell=True)
         if "pair" in params["datatype"]:
-            cmd = "cat "+params["work"]+"fastq/."+name+"*_R2_* > "+\
+            cmd = "cat "+params["work"]+"fastq/."+name+".temp_R2_* > "+\
                          params["work"]+"fastq/"+name+"_R2.fq.gz"
             subprocess.call(cmd, shell=True)
 
