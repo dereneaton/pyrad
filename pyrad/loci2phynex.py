@@ -23,7 +23,7 @@ def make(params, names, longname, formats):
 
     ## remove empty column sites from matrix
     ## and append edited seqs fdict
-    for loc in finalfile.split("//")[:-1]:
+    for loc in finalfile.split("|\n")[:-1]:
         anames = [i.split()[0][1:] for i in \
                   loc.strip().split("\n") if ">" in i]
 
