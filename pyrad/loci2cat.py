@@ -121,63 +121,56 @@ def make(params, names, quiet):
     names.sort()
     print >>outfile, " "*len(names)+"\t"+"\t".join(names)
 
-    for locnumber, loc in enumerate(finalfile.split("//")[:-1]):
-        #print locnumber+1
+    for locnumber, loc in enumerate(finalfile.split("|\n")[:-1]):
         ## get old locus number
-        #print 'locnumber', locnumber+1
         oldloc = new2olddict[locnumber+1]
-        #print 'oldloc', oldloc
 
         ## get tax id and seq id
         fullids = old2ids[int(oldloc)]
-        #print 'ids', fullids
 
         ## put data obj in a dict
         fulldat = {}
-        #print 'LOCUSnewold', locnumber+1, oldloc
-        #print 'FULLIDS LEN', len(fullids)
         for sample in fullids:
-            #print sample
             tax, cid, end = sample.rsplit("_", 2)
-            #print tax, cid
-            #print bindict[tax].keys()[:10]
             obj = bindict[tax][cid+"_"+end]
-            #print tax, obj.Cs
-            #print tax, obj.depths
             obj.string = datstring(obj)
             fulldat[tax] = obj
-        #for i in fulldat:
-        #    print i, fulldat[i]
 
         ## get indels from .loci file
         arrayed = np.array([tuple(i.split()[-1]) for i in \
                             loc.strip().split("\n") if ">" in i])
 
-        #print 'before indels'
-        #for tax in fulldat:
-        #    print fulldat[tax].seq
-        #    print fulldat[tax].string
+        ## correction for potential indels in cut site region
+        for tax in fulldat:
+            diff = (len(arrayed.T)+len(cut1))-len(fulldat[tax].seq)
+            if diff > 0:
+                for i in range(diff):
+                    fulldat[tax].seq = np.insert(tuple(fulldat[tax].seq),
+                                                    0, "-").tostring()
+                    fulldat[tax].string = np.insert(fulldat[tax].string,
+                                                    0, "0,0,0,0").tolist()
 
-        ## correct for indels and edge trimming
+        ## insert indels into sequence
         fulldat = insertindels(fulldat, arrayed, names, cut1)
-        #print 'lens'
-        #print len(fulldat[fulldat.keys()[0]].seq)
-        #print len(fulldat[fulldat.keys()[0]].string)        
 
-        # for tax in fulldat:
-        #     print tax, fulldat[tax].seq
-
-        #for site in range(len(cut1), len(arrayed.T)):
-        #print arrayed.T[0:10,:]
-        #print len(arrayed.T)
-        #print len(cut1)
-
-        ## shift up length of cut site
+        ## write to file
         for site in range(len(cut1), len(arrayed.T)+len(cut1)):
-            xseq = [fulldat[tax].seq[site].upper() if tax in fulldat else "N" \
-                                 for tax in names]
-            xdat = [fulldat[tax].string[site] if tax in fulldat else \
-                               "0,0,0,0" for tax in names]
+            xseq = []
+            xdat = []
+            for tax in names:
+                if tax in fulldat:
+                    xseq.append(fulldat[tax].seq[site].upper())
+                    xdat.append(fulldat[tax].string[site])
+                else:
+                    xseq.append("N")
+                    xdat.append("0,0,0,0")
+            # print site, tax, fulldat[tax]
+            # print fulldat[tax].seq
+            # print fulldat[tax].string
+            # xseq = [fulldat[tax].seq[site].upper() if tax in fulldat else "N" \
+            #                      for tax in names]
+            # xdat = [fulldat[tax].string[site] if tax in fulldat else \
+            #                    "0,0,0,0" for tax in names]
             print >>outfile, "".join(xseq)+"\t"+"\t".join(xdat)
         #print " "
         
