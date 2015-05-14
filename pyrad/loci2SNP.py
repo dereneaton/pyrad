@@ -29,7 +29,7 @@ def make(params, names):
     bis = 0
 
     ## for each locus select out the SNPs"
-    for loc in finalfile.strip().split("|")[:-1]:
+    for loc in finalfile.strip().split("|\n"):    #[:-1]:
         pis = ""
         names = []  ## ns
         seqs = []   ## ss
@@ -40,7 +40,8 @@ def make(params, names):
                 seqs.append(line.split()[-1])
             else:
                 pis = [i[0] for i in enumerate(line) if i[1] in list('*-')]
-                
+
+        
         ## assign snps to S, and record coverage for usnps"
         for tax in snpdict:
             if tax in names:
