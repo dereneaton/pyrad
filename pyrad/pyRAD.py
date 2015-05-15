@@ -464,8 +464,12 @@ def step6(params, gids, groups, minhits, quiet):
             inlist = glob.glob(params["work"]+"clust"+params["wclust"]+\
                                "/"+params["subset"]+"*.consens*")
 
+        excludes = params["exclude"].strip().split(",")
+        names = [i.split("/")[-1].replace(".consens.gz","") for i in inlist]
+        fulllist = [i for i, j in zip(inlist, names) if j not in excludes]
+
         ## cluster consens files in inlist
-        cluster_cons7_shuf.main(params, inlist, "", "", "", quiet)
+        cluster_cons7_shuf.main(params, fulllist, "", "", "", quiet)
         ## vsearch, wclust, datatype, 
         ## outgroup, seed, gids, minhits, 
         ## inlist, WORK, MASK, 0)
