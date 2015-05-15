@@ -124,7 +124,8 @@ def rawedit(params, infile, quiet):
         iseq = "".join(liseq)
 
         ## trim off farside cutsite in merged reads --
-        ## too messy to clean up usually
+        ## to replace would require knowing the 
+        ## how the cut site is cut
         if "merge" in params["datatype"]:
             ## check if two cutters
             if "," in params["cut"]:
@@ -223,6 +224,7 @@ def main(params, fastqs, quiet):
     ## load up work queue "
     submitted = 0
     work_queue = multiprocessing.Queue()
+
     if len(glob.glob(fastqs)) > 1:
         ffiles = glob.glob(fastqs)  ## FS
 

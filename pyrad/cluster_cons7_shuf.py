@@ -275,6 +275,7 @@ def makecons(params, inlist, outhandle, gid, minhit, quiet):
     ## make list of consens files but cats already made
     consfiles = [i for i in inlist if "/cat.cons" not in i]
     consfiles = [i for i in consfiles if "/cat.group" not in i]
+
     if not consfiles:
         sys.exit("no consens files found")
 
