@@ -9,25 +9,33 @@ import os
 import glob
 import operator
 import gzip
+from editraw_rads import unambar
 from potpour import Worker
-from sortandcheck2 import unambig
+#from sortandcheck2 import unambig
+from cluster_cons7_shuf import fullcomp
 
 
-def revcomp(s):
-    ss = s[::-1].strip().replace("A","t").replace("T","a").\
-         replace("C","g").replace("G","c").replace("n","Z").upper().replace("Z","n")
-    return ss
+# def revcomp(seq):
+#     """ returns reverse complement string"""
+#     rseq = seq[::-1].strip().\
+#                 replace("A", "t").\
+#                 replace("T", "a").\
+#                 replace("C", "g").\
+#                 replace("G", "c").\
+#                 replace("n", "Z").\
+#                 upper().replace("Z", "n")
+#     return rseq
 
 
-def unambar(CUT):
-    if any([i in CUT for i in list("RKYSWM")]):
-        CUTa, CUTb = unambig(CUT)
-        return [CUTa,CUTb]
-    else:
-        return False
+# def unambar(CUT):
+#     if any([i in CUT for i in list("RKYSWM")]):
+#         CUTa, CUTb = unambig(CUT)
+#         return [CUTa,CUTb]
+#     else:
+#         return False
 
 
-def Afilter(CUT,s,strict,read):
+def afilter(CUT,s,strict,read):
     read1 = read==1
     a = b = lookfor = wheretocut = None
     " lookfor cut site "
@@ -97,188 +105,218 @@ def Afilter(CUT,s,strict,read):
 
 
 
-def rawedit(WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
+def rawedit(params, infile, quiet):
     """ three functions:
     (1) replaces low quality base calls with Ns,
     (2) checks for adapter sequence and xxbarcodesxx if strict set to 1 or 2 
     (3) concatenate paired reads with a separator and write to file """
-
-    if CUT:
-        if "," in CUT:
-            CUT1,CUT2 = CUT.split(",")
-            CUT2=revcomp(CUT2)
-            x = 0   
-        else:
-            CUT1=CUT
-            CUT2=revcomp(CUT1)
-            x = 1   ## trims garbage base off gbs
-
-    " create iterators for R1 and R2 files "
-    if ".gz" in infile:
-        f1 = gzip.open(infile, 'rb')
-        if ".forward." in infile:
-            f2 = gzip.open(infile.replace(".forward.",".reverse."), 'r')
-        else:
-            f2 = gzip.open(infile.replace("_R1.","_R2."), 'r')
+    #WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
+    if "," in params["cut"]:
+        cut1, cut2 = params["cut"].split(",")
+        cut2 = fullcomp(cut2)
+        badbase = 0   
     else:
-        f1 = open(infile,'r')
-        if ".forward." in infile:
-            f2 = open(infile.replace(".forward.",".reverse."), 'r')
-        else:
-            f2 = open(infile.replace("_R1.","_R2."), 'r')
-    n = str(infile.split('/')[-1])
-    while n.split(".")[-1] in ["fastq","fastQ","gz","fq","FastQ","nomerge"]:
-        n = n.replace('.'+n.split(".")[-1], "")
-    if '.forward' in n:
-        n = n.split(".forward")[0]
-        None
-    else:
-        n = n.replace("_R1","")
+        cut1 = params["cut"]
+        cut2 = fullcomp(cut1)
+        badbase = 1   ## trims garbage base off gbs
 
-    k1 = itertools.izip(*[iter(f1)]*4)
-    k2 = itertools.izip(*[iter(f2)]*4)
+    ## create iterators for R1 and R2 files "
+    if infile.endswith(".gz"):
+        dems1 = gzip.open(infile, 'rb')
+        if ".forward." in infile:
+            dems2 = gzip.open(infile.replace(".forward.", ".reverse."), 'r')
+        else:
+            dems2 = gzip.open(infile.replace("_R1.", "_R2."), 'r')
+    else:
+        dems1 = open(infile, 'r')
+        if ".forward." in infile:
+            dems2 = open(infile.replace(".forward.", ".reverse."), 'r')
+        else:
+            dems2 = open(infile.replace("_R1.", "_R2."), 'r')
+    name = str(infile.split('/')[-1])
+    while name.split(".")[-1] in ["fastq", "fastQ", "gz", "fq",
+                                  "FastQ", "nomerge"]:
+        name = name.replace('.'+name.split(".")[-1], "")
+    if '.forward' in name:
+        name = name.split(".forward")[0]
+    else:
+        name = name.replace("_R1", "")
+
+    k1 = itertools.izip(*[iter(dems1)]*4)
+    k2 = itertools.izip(*[iter(dems2)]*4)
     writing_r = []
     writing_c = []
 
     orig = keep = keepcut = 0
-    handle = WORK+'edits/'+str(n)+".edit"
+    handle = params["work"]+'edits/'+str(name)+".edit"
 
-    "iterate over paired reads, edits 1st, if OK, append both to .edit file"
+    ## iterate over paired reads, edits 1st, if OK, append both to .edit file"
     while 1:
-        try: d = k1.next()
-        except StopIteration: break
-        dd = k2.next()
+        try: 
+            itera1 = k1.next()
+        except StopIteration: 
+            break
+        itera2 = k2.next()
 
         orig += 1
-        SS = d[1].strip()
-        ph = map(ord,d[3].strip())
-        offset = int(Q)
-        phred = map(lambda x:x-offset,ph)
+        iseq = itera1[1].strip()
+        qscore = [ord(i) for i in itera1[3].strip()]
+        offset = int(params["Q"])
+        phred = [x-offset for x in qscore]
         seq = ["N"]*len(phred)
+
+        ## fix cut sites to be error free
+        liseq = list(iseq)
+        liseq[:len(cut1)] = list(cut1)
+        iseq = "".join(liseq)
+        if "merge" in params["datatype"]:
+            iseq[-len(cut2):] = fullcomp(cut2)
+
         for base in range(len(phred)):
-            if base >= len(CUT1):              ## don't quality check cut site
+            if base >= len(cut1):              ## don't quality check cut site
                 if phred[base] >= 20:          ## quality threshold
-                    try: seq[base] = SS[base]
+                    try: 
+                        seq[base] = iseq[base]
                     except IndexError:
-                        None
+                        pass
                 else:
                     seq[base] = "N"
             else:
-                if unambar(CUT1):
-                    seq[base] = unambar(CUT1)[0][base]
+                if unambar(cut1):
+                    seq[base] = unambar(cut1)[0][base]
                 else:
-                    seq[base] = CUT1[base]
+                    seq[base] = cut1[base]
 
-        s = "".join(seq)
+        sseq1 = "".join(seq)
         wheretocut1 = None
 
-        " apply filters for adapter sequences "
-        " if GBS CUT2 = revcomp(CUT1)   ex: CTGCA"
-        " if ddRAD CUT2 = revcomp(CUT2) ex: AATT "
-        if strict:
-            wheretocut1 = Afilter(CUT2,s,strict,1)
-
-        if s.count("N") <= pN:              ## max allowed Ns
-            if len(s) >= max(32,trimkeep):  ## if trimmed read1 length atleast t
-
-                " first read is (maybe) good, now filter second reads "
-                SS = dd[1].strip()
-                ph = map(ord,dd[3].strip())
-                " if PEAR filtered then seqs are revcomps "
+        ## apply filters for adapter sequences "
+        ## if GBS CUT2 = revcomp(CUT1)   ex: CTGCA"
+        ## if ddRAD CUT2 = revcomp(CUT2) ex: AATT "
+        if params["strict"]:
+            wheretocut1 = afilter(cut2, sseq1, params["strict"], 1)
+        
+        ## max allowed Ns
+        if sseq1.count("N") <= int(params["maxN"]):
+            ## if trimmed read1 length atleast t
+            if len(sseq1) >= max(32, params["trimkeep"]):     
+                ## first read is (maybe) good, now filter second reads "
+                iseq = itera2[1].strip()
+                qscore = [ord(i) for i in itera2[3].strip()]
+                ## if PEAR filtered then seqs are revcomps "
                 if '.forward' in infile:
-                    SS = revcomp(SS)
-                    ph = ph[::-1]
-                
-                offset = int(Q)
-                phred = map(lambda x:x-offset,ph)
+                    iseq = revcomp(iseq)
+                    qscore = qscore[::-1]
+                offset = int(params["Q"])
+                phred = [x-offset for x in qscore]
                 seq = ["N"]*len(phred)
                 for base in range(len(phred)):
-                    if base > len(CUT2):               ## don't quality check cut site
-                        if phred[base] >= 20:          ## quality threshold
-                            try: seq[base] = SS[base]
-                            except IndexError: None
+                    ## don't quality check cut site                    
+                    if base > len(cut2):
+                        ## quality threshold                        
+                        if phred[base] >= 20:          
+                            try: 
+                                seq[base] = iseq[base]
+                            except IndexError: 
+                                pass
                         else:
                             seq[base] = "N"
                     else:
-                        try: seq[base] = SS[base]
-                        except IndexError: None
-                s2 = "".join(seq)
+                        try:
+                            seq[base] = iseq[base]
+                        except IndexError: 
+                            pass
+                sseq2 = "".join(seq)
 
-                " filter for gbs read2s, b/c they will be clustered"
+                ## filter for gbs read2s, b/c they will be clustered"
                 badread = 0
-                if datatype == "pairgbs":
-                    s2 = s2[:len(s)]
-                    if s2.count("N")>pN:
+                if params["datatype"] == "pairgbs":
+                    sseq2 = sseq2[:len(sseq1)]
+                    if sseq2.count("N") > params["maxN"]:
                         badread = 1
 
-                " apply adapter filter to read 2 "
+                ## apply adapter filter to read 2
                 wheretocut2 = None
-                if strict:
-                    wheretocut2 = Afilter(revcomp(CUT1),s2,strict,2)
+                if params["strict"]:
+                    wheretocut2 = afilter(revcomp(cut1), sseq2, 
+                                          params["strict"], 2)
 
-                if (wheretocut1 and wheretocut2):
-                    cutter = min(wheretocut1,wheretocut2)
+                if wheretocut1 and wheretocut2:
+                    cutter = min(wheretocut1, wheretocut2)
                 else:
-                    cutter = max(wheretocut1,wheretocut2)
-                if strict:
+                    cutter = max(wheretocut1, wheretocut2)
+                ## extra strict check for undigested cutsites
+                if params["strict"]:
                     if not cutter:
-                        if (revcomp(CUT1) in s2[-16:]) or (CUT2 in s[-10:]):
-                            cutter = len(s)-16
+                        if (cut1 in sseq2[-16:]) or \
+                           (cut2 in sseq1[-10:]):
+                            cutter = len(sseq1)-16
 
                 if not badread:
                     if cutter:
                         ## second read was trimmed
-                        if cutter > max(32,trimkeep):
-                            ## include only the first read, with an N placeholder for read2
+                        if cutter > max(32, params["trimkeep"]):
+                            ## include only the first read, with an 
+                            ## N placeholder for read2
                             ## since it was trimmed off
-                            sout = ">"+n+"_"+str(keepcut)+"_trim1"+"\n"+s[:cutter]+\
-                                   "nnnnN\n"#+d[2]+d[3][:cutter]+"\n"
+                            sout = ">"+name+"_"+str(keepcut)+\
+                                   "_trim1"+"\n"+sseq1[:cutter]+\
+                                   "nnnnN\n"
                             writing_c.append(sout)
                             keepcut += 1
-                            ## cannot keep trimmed second read in pairddrad method
-                            ## but can in pairgbs
-                            if datatype == 'pairgbs':
-                                sout = ">"+n+"_"+str(keepcut)+"_trim2"+"\nNnnnn"+revcomp(s2[x:cutter+5])+\
-                                       "\n"#+d[2]+d[3][x:cutter+5]+"\n"
+                            ## cannot keep trimmed second read in 
+                            ## pairddrad method but can in pairgbs
+                            if params["datatype"] == 'pairgbs':
+                                sout = ">"+name+"_"+str(keepcut)+\
+                                       "_trim2\nNnnnn"+\
+                                       fullcomp(sseq2[x:cutter+5])+"\n"
                                 writing_c.append(sout)
                                 keepcut += 1
                     else:
                         ## second read is good, not trimmed
-                        sout = ">"+n+"_"+str(keep)+"_pair"+"\n"+s[:-1]+"nnnn"+revcomp(s2[x:])+"\n"
+                        sout = ">"+name+"_"+str(keep)+\
+                               "_pair"+"\n"+sseq1[:-1]+"nnnn"+\
+                               fullcomp(sseq2[x:])+"\n"
                         writing_r.append(sout)
                         keep += 1
+                else:
+                    ##...
+                    pass
+            else:
+                ## ...
+                pass
 
-        if not orig % 5000:
-            #if trimkeep:
-            #    with open(WORK+'mergedreads/'+str(n)+"M.fq",'a') as outfile:
-            #        outfile.write("".join([z for z in writing_c]))
-            " writes only full length reads "
-            with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
+        if not orig % 50000:
+            ## writes only full length reads "
+            with open(params["work"]+'edits/'+\
+                      str(name)+".edit", 'a') as outfile:
                 outfile.write("".join([z for z in writing_r]))
-            " writes only full length reads "
-            with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
+            ## writes only full length reads "
+            with open(params["work"]+'edits/'+\
+                      str(name)+".edit", 'a') as outfile:
                 outfile.write("".join([z for z in writing_c]))
             writing_r = []
             writing_c = []
 
-    #if trimkeep:
-    #    with open(WORK+'mergedreads/'+str(n)+"M.fq",'a') as outfile:
-    #        outfile.write("".join([z for z in writing_c]))
-    " writes only full length reads "
-    with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
+    ## writes only full length reads
+    with open(params["work"]+'edits/'+str(name)+".edit", 'a') as outfile:
         outfile.write("".join([z for z in writing_r]))
-    " writes only full length reads "
-    with open(WORK+'edits/'+str(n)+".edit",'a') as outfile:
+    ## writes only full length reads "
+    with open(params["work"]+'edits/'+str(name)+".edit", 'a') as outfile:
         outfile.write("".join([z for z in writing_c]))
     writing_r = []
     writing_c = []
 
-    f1.close()
-    f2.close()
-    sys.stderr.write(".")
-    if datatype=='pairgbs':
+    dems1.close()
+    dems2.close()
+    if not quiet:
+        sys.stderr.write(".")
+
+    if params["datatype"] == 'pairgbs':
         keepcut = keepcut*2
-    return [handle.split("/")[-1].replace(".edit",""),str(orig),str(keepcut),str(keep)]
+
+    return [handle.split("/")[-1].replace(".edit", ""), 
+            str(orig), str(keepcut), str(keep)]
 
 
 
