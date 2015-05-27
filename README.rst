@@ -24,15 +24,15 @@ Stable release versions can be downloaded `here <https://github.com/dereneaton/p
 
 Installation (As of v.3.0.6 and newer)
 ^^^^^^^^^^^^^^^^^
-Using pip you can install pyrad so that it can be called from anywhere on your machine:
+With the following you can install pyrad so that it is callable as an executable from anywhere on your machine:
 
 ::
 
     cd pyrad
-    sudo pip install .
+    sudo python setup.py install
     pyrad -h    
 
-or alternatively, without installation you can simply use python to call pyrad from its location:
+or alternatively, without having to install you can simply call pyRAD.py from its location using python:
 
 ::
 
@@ -41,11 +41,15 @@ or alternatively, without installation you can simply use python to call pyrad f
 
 Python requirements
 ^^^^^^^^^^^^^^^^^^^
-These will be automatically installed alongside `pyrad`.
+You will need the following two Python dependencies with `pyrad`.
 
  * numpy
  * scipy
 
+In addition to the programs  
+
+ * `muscle <www.drive5.com/muscle/downloads>`_
+ * `vsearch <https://github.com/torognes/vsearch>`_
 
 Example usage (see tutorials)
 ^^^^^^^^^^^^^^^^^^^
