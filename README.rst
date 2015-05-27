@@ -28,6 +28,7 @@ With the following you can install pyrad so that it is callable as an executable
 
 ::
 
+    cd pyrad
     sudo python setup.py install  
     pyrad -h
 
@@ -42,8 +43,8 @@ Or
 Or alternatively, without having to install you can simply call pyRAD.py from its location using python:
 
 ::
-
-    python pyrad/pyRAD.py -h
+    
+    python pyrad/pyrad/pyRAD.py -h
 
 
 Python requirements
