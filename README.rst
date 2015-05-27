@@ -27,6 +27,7 @@ Installation (As of v.3.0.6 and newer)
 With the following you can install pyrad so that it is callable as an executable from anywhere on your machine. If you have pip, then installing with it will also install the dependencies numpy and scipy:
 
 ::
+
     sudo python setup.py install  
     pyrad -h
 
