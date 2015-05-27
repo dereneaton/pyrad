@@ -28,15 +28,17 @@ With the following you can install pyrad so that it is callable as an executable
 
 ::
     sudo python setup.py install  
-:
-    or   
+    pyrad -h
+
+Or 
+
 ::
+
     cd pyrad
     sudo pip install .
+    pyrad -h
 
-    pyrad -h    
-
-or alternatively, without having to install you can simply call pyRAD.py from its location using python:
+Or alternatively, without having to install you can simply call pyRAD.py from its location using python:
 
 ::
 
