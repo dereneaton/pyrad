@@ -6,8 +6,8 @@ def main(version):
     output = """
 ==** parameter inputs for pyRAD version %s  **======================= affected step ==
 ./                      ## 1. Working directory                                 (all)
-./*.fastq.gz            ## 2. Loc. of non-demultiplexed files (if not line 16)  (s1)
-./*.barcodes            ## 3. Loc. of barcode file (if not line 16)             (s1)
+./*.fastq.gz            ## 2. Loc. of non-demultiplexed files (if not line 18)  (s1)
+./*.barcodes            ## 3. Loc. of barcode file (if not line 18)             (s1)
 vsearch                 ## 4. command (or path) to call vsearch (or usearch)    (s3,s6)
 muscle                  ## 5. command (or path) to call muscle                  (s3,s7)
 TGCAG                   ## 6. Restriction overhang (e.g., C|TGCAG -> TGCAG)     (s1,s2)
