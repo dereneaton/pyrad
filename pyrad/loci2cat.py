@@ -140,18 +140,33 @@ def make(params, names, quiet):
         arrayed = np.array([tuple(i.split()[-1]) for i in \
                             loc.strip().split("\n") if ">" in i])
 
-        ## correction for potential indels in cut site region
-        for tax in fulldat:
-            diff = (len(arrayed.T)+len(cut1))-len(fulldat[tax].seq)
-            if diff > 0:
-                for i in range(diff):
-                    fulldat[tax].seq = np.insert(tuple(fulldat[tax].seq),
-                                                    0, "-").tostring()
-                    fulldat[tax].string = np.insert(fulldat[tax].string,
-                                                    0, "0,0,0,0").tolist()
+        # ## correction for potential indels in cut site region
+        # for tax in fulldat:
+        #     diff = (len(arrayed.T)+len(cut1))-len(fulldat[tax].seq)
+        #     if diff > 0:
+        #         print arrayed.T
+        #         print fulldat[tax].seq
+        #         print len(fulldat[tax].seq)
+        #         print diff, 'diff'
+        #         for i in range(diff):
+        #             print "INDELPOP"
+        #             temp = list(fulldat[tax].seq)
+        #             temp[i] = "-"
+        #             fulldat[tax].seq = "".join(temp)
+        #             fulldat[tax].string[i] = "0,0,0,0"
+        #             #fulldat[tax].seq = np.insert(tuple(fulldat[tax].seq),
+        #             #                                0, "-").tostring()
+        #             #fulldat[tax].string = np.insert(fulldat[tax].string,
+        #             #                                0, "0,0,0,0").tolist()
+        #         print fulldat[tax].seq, 'FIX'
 
+        #print fulldat
+        #print arrayed
         ## insert indels into sequence
-        fulldat = insertindels(fulldat, arrayed, names, cut1)
+        tnames = [i for i in names if i in fulldat]
+        tnames.sort()
+        fulldat = insertindels(fulldat, arrayed, tnames, cut1)
+        #print fulldat[tax].seq, 'FIX'
 
         ## write to file
         for site in range(len(cut1), len(arrayed.T)+len(cut1)):
