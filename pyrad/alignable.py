@@ -341,7 +341,13 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                 names.append("_".join(itera[0].split(">")[1].split("_")\
                                        [:-2])+"_"+str(nameiter))
                 onames.append(itera[0].strip().split("_")[-1])
-                seqs.append(itera[1].strip())
+                ## exclude cut site length from beginning
+                if "merge" not in params["datatype"]:
+                    seqs.append(itera[1].strip()[len(cut1):])
+                elif "pair" in params["datatype"]:
+                    print "TODO REMOVE CUT2"
+                else:
+                    print "TODO FIX HERE"
             itera = duo.next()
             nameiter += 1
         ## get old locus id
@@ -388,14 +394,15 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                     stringnames = alignfast(params, pronum, names, seqs)
                     names, seqs = sortalign(stringnames)  ## nn, sss
                 
-                ## now strip off cut sites
-                if params["datatype"] == "merged":
-                    tseqs = [i[len(cut1):-len(cut2)] for i in seqs]
-                ## TODO: double check that pair in names is right here
-                elif ("c1" in onames) or ("pair" in onames):
-                    tseqs = [i[len(cut1):-len(cut2)] for i in seqs]
-                else:
-                    tseqs = [i[len(cut1):] for i in seqs]
+                tseqs = seqs
+                ## old place to strip off cut sites
+                # if params["datatype"] == "merged":
+                #     tseqs = [i[len(cut1):-len(cut2)] for i in seqs]
+                # ## TODO: double check that pair in names is right here
+                # elif ("c1" in onames) or ("pair" in onames):
+                #     tseqs = [i[len(cut1):-len(cut2)] for i in seqs]
+                # else:
+                #     tseqs = [i[len(cut1):] for i in seqs]
 
                 ## trim off numbers that were added to names
                 names = ["_".join(i.split("_")[:-1]) for i in names]
@@ -411,7 +418,8 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
 
                     ## get trimmed edges
                     fm1, fm2, sm1, sm2 = trimmer(params, names, tseqs)
-
+                    
+                    
                     ## alphabetize names
                     zz.sort()
 
