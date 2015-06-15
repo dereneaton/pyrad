@@ -382,9 +382,10 @@ def step2(params, stripped, quiet):
     if 'pair' not in params["datatype"]: 
         ## extra check on cut sites for ddrad data
         if params["datatype"] == 'ddrad':
+            print params["cut"], 'heres the cut'
             if "," not in params["cut"]:
-                sys.exit("\n\tyou must enter two restriction sites "+\
-                        "for pair ddRAD data")
+                print "\n\twarning: second restriction site "+\
+                        "not entered, filtering will not use this information."
         editraw_rads.main(params, fastqs, quiet)
 
     else: 
