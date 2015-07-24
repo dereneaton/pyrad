@@ -7,6 +7,10 @@
 #######################################################
 """
 
+AUTHOR = "Deren Eaton"
+CONTACT = "deren.eaton@yale.edu"
+VERSION = "3.1.0a"
+
 import os
 import sys
 import glob
@@ -606,7 +610,7 @@ if __name__ == "__main__":
     ## parse the command line arguments
     PARSER = OptionParser(prog="pyRAD", 
                           usage="%prog [options]",
-                          version="%prog 3.1.0a3")
+                          version="%prog "+VERSION)
 
     PARSER.add_option('-p', action="store", 
                             type="string",
@@ -669,6 +673,7 @@ if __name__ == "__main__":
         0                            ## output bootstrap Ds to files (0=no,1=yes)
         -----------------------------------------------------------\n"""
         sys.stdout.write(OUTSTRING)
+
 
     ## do D-stat measurements if asked
     if OPTIONS.dtest:
