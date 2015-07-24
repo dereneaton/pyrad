@@ -563,7 +563,7 @@ def splitandalign(params, infile, ingroup, exclude, longname, quiet):
     """ split cluster file into smaller files depending on the number
     of processors and align each file separately using alignfunc function."""
 
-    ## break input file into chunks for n threads
+    ## double check that old chunk and aligns are removed
     for i in glob.glob(params["work"]+".align*"):
         os.remove(i)
     for i in glob.glob(params["work"]+".chunk*"):
@@ -576,7 +576,6 @@ def splitandalign(params, infile, ingroup, exclude, longname, quiet):
     chunks = [0+(len(data)/minpar)*i for i in range(minpar)]
     for i in range(len(chunks)-1):
         dat = open(params["work"]+".chunk_"+str(i), 'w')
-        #print "//\n\n".join(data[chunks[i]])+"//\n\n"
         dat.write("//\n".join(data[chunks[i]:chunks[i+1]])+"//\n")
         dat.close()
     dat = open(params["work"]+".chunk_"+str(i+1), 'w')
@@ -967,6 +966,13 @@ def main(params, infile, taxadict, minhits, version, quiet):
         ## check for dependencies...
         loci2cat.make(params, names, quiet)
 
+    ## another check to remove old temp files
+    for i in glob.glob(params["work"]+".chunk_*"):
+        os.remove(i)
+    for i in glob.glob(params["work"]+".align_*"):
+        os.remove(i)
+    for i in glob.glob(params["work"]+".not_*"):
+        os.remove(i)
 
 
 if __name__ == "__main__":
