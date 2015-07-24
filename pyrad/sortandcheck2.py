@@ -103,7 +103,7 @@ def findbcode(cut, longbar, l):
     return barcode
 
 
-def barmatch(params, raws, bcdmap, longbar, num, quiet):
+def barmatch(params, raws, bcdmap, longbar, num, localcut, quiet):
     """matches reads to barcodes in barcode file
     and writes to individual temp files, after all
     read files have been split, temp files are collated
@@ -172,7 +172,7 @@ def barmatch(params, raws, bcdmap, longbar, num, quiet):
                 barcode = l[1][:longbar[0]]
             else:
                 ## find barcodes in the reads"
-                barcode = findbcode(params["cut"], longbar[0], l)
+                barcode = findbcode(localcut, longbar[0], l)
 
             ## tracker of number of occurrences of each barcode
             if barcode:
@@ -207,7 +207,7 @@ def barmatch(params, raws, bcdmap, longbar, num, quiet):
                 else:
                     barcode = l[1][:longbar[0]]
             else:
-                barcode = findbcode(params["cut"], longbar[0], l)
+                barcode = findbcode(localcut, longbar[0], l)
 
             ## tracker of number of occurrences of each barcode"
             if barcode:
@@ -311,13 +311,8 @@ def writetofile(params, bcdmap, barcodehits, dsort1,
 
 
 
-def writefunc(params, quiet):
+def writefunc(params, quiet, localcut):
     "create barcode dictionary"
-    #GLOB,Parallel,Bcode,CUT,datatype,maxmismatch,WORK):
-
-    ## seperate double digest cut sites, only need first read one for now "
-    if "," in params["cut"]:
-        params["cut"] = params["cut"].split(",")[0]
 
     ## get barcode map
     codetable = open(params["bcode"], 'r')
@@ -335,7 +330,7 @@ def writefunc(params, quiet):
         longbar = (max(keylens), 'diff')
 
     ## check for CUT in barcodes "
-    cuts = unambig(params["cut"])
+    cuts = unambig(localcut)
 
     if len(cuts) > 1:
         for cut in cuts:
@@ -344,7 +339,7 @@ def writefunc(params, quiet):
                       " of the barcodes, I suggest double \n\tchecking"+\
                       " the file to make sure it properly demultiplexes"
     else:
-        if any([params["cut"] in i for i in bcdmap.keys()]):
+        if any([localcut in i for i in bcdmap.keys()]):
             print "\n\twarning: CUT site matches within one of "+\
                   "the barcodes, I suggest double \n\tchecking the "+\
                   "file to make sure it properly demultiplexes"
@@ -366,11 +361,11 @@ def writefunc(params, quiet):
     for fastq in raws:
         if 'pair' in params["datatype"]:
             work_queue.put([params, fastq, bcdmap,
-                            longbar, num, quiet])
+                            longbar, num, localcut, quiet])
             submitted += 1
         else:
             work_queue.put([params, fastq, bcdmap,
-                            longbar, num, quiet])
+                            longbar, num, localcut, quiet])
             submitted += 1
         num += 1
 
@@ -448,6 +443,12 @@ def writefunc(params, quiet):
 def main(params, quiet):
     """ the main script """
 
+    ## seperate double digest cut sites, only need first read one for now "
+    if "," in params["cut"]:
+        localcut = params["cut"].split(",")[0]
+    else:
+        localcut = params["cut"]
+
     if not glob.glob(params["glob"]):
         sys.exit("\tNo data found in "+params["glob"]+\
                  ". \n\tFix path to the data files\n")
@@ -475,7 +476,7 @@ def main(params, quiet):
                       "cut_found", "bar_matched"])+"\n")
 
     ## do barcode sorting
-    writefunc(params, quiet)
+    writefunc(params, quiet, localcut)
     names = [line.split()[0] for line \
              in open(params["bcode"]).readlines() if line.strip()]
 
