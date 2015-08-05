@@ -103,10 +103,10 @@ def cluster(params, handle, gid, quiet):
 
     if params["datatype"] in ['gbs', 'pairgbs', 'merged']:
         parg = " -strand both"
-        cov = " -query_cov .90 "
+        cov = " -query_cov .60 "
     else:
         parg = " -leftjust "
-        cov = " -query_cov .90 "
+        cov = " -query_cov .60 "
     if 'vsearch' not in params["vsearch"]:
         mask = ""
         threads = " -threads 1"

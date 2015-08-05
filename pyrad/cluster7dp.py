@@ -226,10 +226,10 @@ def fullcluster(params, outfolder, handle):
         cov = " -query_cov .35 " 
     elif params["datatype"] == 'pairgbs':
         reverse = " -strand both "
-        cov = " -query_cov .90 " 
+        cov = " -query_cov .60 " 
     else:     ## rad, ddrad, ddradmerge
         reverse = " -leftjust "
-        cov = " -query_cov .90"
+        cov = " -query_cov .60"
     ## if vsearch and not usearch
     if 'vsearch' not in params["vsearch"]:
         masker = " "
