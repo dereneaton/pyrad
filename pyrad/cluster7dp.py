@@ -369,7 +369,7 @@ def alignwrappair(params, handle):
         names = []   
         seqs = []
         stack = []
-        badpair = []
+        badpairs = []
         nameiter = 0
 
         ##read in all data for this stack "
@@ -418,7 +418,7 @@ def alignwrappair(params, handle):
                                      somedic1[key]+"nnnn"+somedic2[key])
             else:
                 for key in keys:
-                    badpair.append("_".join(key.split("_")[:-1])+'\n'+\
+                    badpairs.append("_".join(key.split("_")[:-1])+'\n'+\
                                      somedic1[key]+"nnnn"+somedic2[key])
                 multihits += 1
                 
@@ -429,12 +429,12 @@ def alignwrappair(params, handle):
         cnts += 1
         if stack:
             out.append("\n".join(stack))
-        if badpair:
-            outp.append("\n".join(badpair))
+        if badpairs:
+            outp.append("\n".join(badpairs))
 
         if not cnts % 5000:
             if out:
-                outfile = gzip.open(infile.replace(".clust", ".clustS"), 'a')
+                outfile = gzip.open(handle.replace(".clust", ".clustS"), 'a')
                 outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
                 outfile.close()
             out = []
