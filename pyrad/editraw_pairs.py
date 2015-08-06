@@ -238,6 +238,9 @@ def rawedit(params, infile, quiet):
                            (cut2 in sseq1[-10:]):
                             cutter = len(sseq1)-16
 
+
+                ## TODO
+                ## check, does pairgbs fixes break pairddrad
                 if not badread:
                     if cutter:
                         ## second read was trimmed
@@ -264,7 +267,7 @@ def rawedit(params, infile, quiet):
                     else:
                         ## second read is good, not trimmed
                         sout = ">"+name+"_"+str(keep)+\
-                               "_pair"+"\n"+sseq1[:-1]+"nnnn"+\
+                               "_pair"+"\n"+sseq1+"nnnn"+\
                                fullcomp(sseq2[::-1]).rstrip("N")+"\n"
                         writing_r.append(sout)
                         keep += 1
