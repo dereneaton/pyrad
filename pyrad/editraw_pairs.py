@@ -194,9 +194,10 @@ def rawedit(params, infile, quiet):
                 offset = int(params["Q"])
                 phred = [x-offset for x in qscore]
                 seq = ["N"]*len(phred)
+                print iseq
                 for base in range(len(phred)):
                     ## don't quality check cut site                    
-                    if base > len(cut2):
+                    if base >= len(cut2):
                         ## quality threshold                        
                         if phred[base] >= 20:          
                             try: 
