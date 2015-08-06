@@ -197,7 +197,7 @@ def rawedit(params, infile, quiet):
                 print iseq
                 for base in range(len(phred)):
                     ## don't quality check cut site                    
-                    if base >= len(cut2):
+                    if base > len(cut2):
                         ## quality threshold                        
                         if phred[base] >= 20:          
                             try: 
@@ -206,7 +206,7 @@ def rawedit(params, infile, quiet):
                                 pass
                     else:
                         try:
-                            seq[base] = fullcomp(cut1)[::-1]
+                            seq[base] = "N"
                         except IndexError: 
                             pass
                 sseq2 = "".join(seq)
