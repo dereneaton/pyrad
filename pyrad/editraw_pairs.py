@@ -11,98 +11,75 @@ import operator
 import gzip
 from editraw_rads import unambar
 from potpour import Worker
-#from sortandcheck2 import unambig
 from cluster_cons7_shuf import fullcomp
 
 
-# def revcomp(seq):
-#     """ returns reverse complement string"""
-#     rseq = seq[::-1].strip().\
-#                 replace("A", "t").\
-#                 replace("T", "a").\
-#                 replace("C", "g").\
-#                 replace("G", "c").\
-#                 replace("n", "Z").\
-#                 upper().replace("Z", "n")
-#     return rseq
+def afilter(cut, seq, strict, read):
+    read1 = (read == 1)
+    check1 = check2 = wheretocut = None
+    ## lookfor cut site "
 
-
-# def unambar(CUT):
-#     if any([i in CUT for i in list("RKYSWM")]):
-#         CUTa, CUTb = unambig(CUT)
-#         return [CUTa,CUTb]
-#     else:
-#         return False
-
-
-def afilter(CUT,s,strict,read):
-    read1 = read==1
-    a = b = lookfor = wheretocut = None
-    " lookfor cut site "
-
-    " if ambiguity in cutter "
-    if unambar(CUT):
-        CUTa,CUTb = unambar(CUT)
+    if unambar(cut):
+        ## if ambiguity in cutter "        
+        cuta, cutb = unambar(cut)
         if strict == 2:
             if read1:
-                lookfor1 = CUTa+"A"
-                lookfor2 = CUTb+"A"
+                lookfor1 = cuta+"A"
+                lookfor2 = cutb+"A"
             else:
-                lookfor1 = CUTa
-                lookfor2 = CUTb
+                lookfor1 = cuta
+                lookfor2 = cutb
         else:
             if read1:
-                lookfor1 = CUTa+"AGAT"
-                lookfor2 = CUTb+"AGAT"
+                lookfor1 = cuta+"AGAT"
+                lookfor2 = cutb+"AGAT"
             else:
                 lookfor1 = "A"*50
                 lookfor2 = "A"*50
-        if lookfor1 in s:
-            a = s.rindex(lookfor1)
-        if lookfor2 in s:
-            b = s.rindex(lookfor2)
-        if (a or b):
-            wheretocut = min([i for i in [a,b] if i])
+        if lookfor1 in seq:
+            check1 = seq.rindex(lookfor1)
+        if lookfor2 in seq:
+            check2 = seq.rindex(lookfor2)
+        if check1 or check2:
+            wheretocut = min([i for i in [check1, check2] if i])
         else:
             wheretocut = None
     else:
-        "no ambiguity in cutter "
+        ## no ambiguity in cutter "
         if strict == 2:
             if read1:
-                lookfor1 = CUT+"A"
+                lookfor1 = cut+"A"
             else:
-                lookfor1 = CUT
+                lookfor1 = cut
         else:
             if read1:
-                lookfor1 = CUT+"AGA"
+                lookfor1 = cut+"AGA"
             else:
                 lookfor1 = "A"*50
-        if lookfor1 in s:
-            wheretocut = s.rindex(lookfor1)
+        if lookfor1 in seq:
+            wheretocut = seq.rindex(lookfor1)
         else:
             wheretocut = None
                 
-    " look for adapter sequence "
+    ## look for adapter sequence "
     if not wheretocut:
         if strict == 2:
             lookfor1 = "AGATCG"
         else:
             lookfor1 = "AGATCGGA"
-        if lookfor1 in s:
+        if lookfor1 in seq:
             if read1:
-                wheretocut = s.rindex(lookfor1)-(len(CUT)+1)
+                wheretocut = seq.rindex(lookfor1)-(len(cut)+1)
             else:
-                wheretocut = s.rindex(lookfor1)-(len(CUT)+6)
+                wheretocut = seq.rindex(lookfor1)-(len(cut)+6)
         else:
             wheretocut = None
 
-    " look for CUT and end of seq "
+    ## look for CUT and end of seq 
     if not wheretocut:
-        if CUT in s[-(len(CUT)+5):]:
-            wheretocut = s.rindex(CUT)
+        if cut in seq[-(len(cut)+5):]:
+            wheretocut = seq.rindex(cut)
     return wheretocut
-            
-
 
 
 def rawedit(params, infile, quiet):
@@ -110,15 +87,14 @@ def rawedit(params, infile, quiet):
     (1) replaces low quality base calls with Ns,
     (2) checks for adapter sequence and xxbarcodesxx if strict set to 1 or 2 
     (3) concatenate paired reads with a separator and write to file """
-    #WORK, infile, CUT, pN, trimkeep, strict, Q, datatype):
+
+    ## get cutters
     if "," in params["cut"]:
-        cut1, cut2 = params["cut"].split(",")
+        cut1, cut2 = params["cut"].strip().split(",")
         cut2 = fullcomp(cut2)
-        badbase = 0   
     else:
         cut1 = params["cut"]
         cut2 = fullcomp(cut1)
-        badbase = 1   ## trims garbage base off gbs
 
     ## create iterators for R1 and R2 files "
     if infile.endswith(".gz"):

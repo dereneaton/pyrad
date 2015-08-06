@@ -74,8 +74,6 @@ def fullcomp(seq):
 
 def cluster(params, handle, gid, quiet):
     """ clusters with vsearch across samples """
-    #vsearch, handle, ID, datatype,
-    #        quiet, WORK, gid, MASK):
 
     if params["datatype"] == 'pairddrad':
         ## use first files for split clustering "

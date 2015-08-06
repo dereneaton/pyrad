@@ -20,9 +20,9 @@ def unambar(cut):
     """ returns both resolutions of an ambiguous cutter """
     if any([i in cut for i in list("RKYSWM")]):
         cuta, cutb = unambig(cut)
-        return [cuta, cutb]
+        return cuta, cutb
     else:
-        return False
+        return False, False
 
 
 def afilter(cut, seq, strict):
