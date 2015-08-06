@@ -216,9 +216,8 @@ def rawedit(params, infile, quiet):
                 if params["datatype"] == "pairgbs":
                     ## only keep as much of read2 as there is of read1
                     sseq2 = sseq2[:len(sseq1)]
-                    if sseq2.count("N") > params["maxN"]:
+                    if sseq2.count("N") > params["maxN"]+len(cut2):
                         badread = 1
-
 
                 print sseq2, cut2, fullcomp(cut1)[::-1]
                 ## apply adapter filter to read 2
@@ -249,7 +248,8 @@ def rawedit(params, infile, quiet):
                                 sout = ">"+name+"_"+str(keepcut)+\
                                        "_trimpair\n"+\
                                        sseq1[:cutter]+"nnnn"+\
-                                       fullcomp(sseq2[1:cutter])+"\n"
+                                       fullcomp(sseq2[1:cutter]).\
+                                                lstrip("N")+"\n"
                                 writing_c.append(sout)
                                 keepcut += 1
                             else:
