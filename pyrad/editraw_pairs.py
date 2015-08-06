@@ -246,7 +246,7 @@ def rawedit(params, infile, quiet):
                                 sout = ">"+name+"_"+str(keepcut)+\
                                        "_trimpair\n"+\
                                        sseq1[:cutter]+"nnnn"+\
-                                       fullcomp(sseq2[:cutter])+"\n"
+                                       fullcomp(sseq2[1:cutter])+"\n"
                                 writing_c.append(sout)
                                 keepcut += 1
                             else:
@@ -262,7 +262,7 @@ def rawedit(params, infile, quiet):
                         ## second read is good, not trimmed
                         sout = ">"+name+"_"+str(keep)+\
                                "_pair"+"\n"+sseq1[:-1]+"nnnn"+\
-                               fullcomp(sseq2[:])+"\n"
+                               fullcomp(sseq2[1:])+"\n"
                         writing_r.append(sout)
                         keep += 1
                 else:
