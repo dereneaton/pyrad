@@ -110,23 +110,30 @@ def rawedit(params, infile, quiet):
         else:
             dems2 = open(infile.replace("_R1.", "_R2."), 'r')
     name = str(infile.split('/')[-1])
+
+    ## remove file ending
     while name.split(".")[-1] in ["fastq", "fastQ", "gz", "fq",
                                   "FastQ", "nomerge"]:
         name = name.replace('.'+name.split(".")[-1], "")
+
+    ## get sample name from R1 file
     if '.forward' in name:
         name = name.split(".forward")[0]
     else:
         name = name.replace("_R1", "")
 
+    ## iterators to read 4 lines at a time
     k1 = itertools.izip(*[iter(dems1)]*4)
     k2 = itertools.izip(*[iter(dems2)]*4)
     writing_r = []
     writing_c = []
 
+    ## counters and output file
     orig = keep = keepcut = 0
     handle = params["work"]+'edits/'+str(name)+".edit"
 
-    ## iterate over paired reads, edits 1st, if OK, append both to .edit file"
+    ## iterate over paired reads, edits 1st, if OK, append both reads 
+    ## to .edit file, except if pairgbs data, then edit 2nd read too.
     while 1:
         try: 
             itera1 = k1.next()
@@ -148,6 +155,7 @@ def rawedit(params, infile, quiet):
         if "merge" in params["datatype"]:
             iseq[-len(cut2):] = fullcomp(cut2)
 
+        ## replace bad bases with Ns
         for base in range(len(phred)):
             if base >= len(cut1):              ## don't quality check cut site
                 if phred[base] >= 20:          ## quality threshold
@@ -166,11 +174,11 @@ def rawedit(params, infile, quiet):
         sseq1 = "".join(seq)
         wheretocut1 = None
 
-        ## apply filters for adapter sequences "
+        ## apply filters for adapter sequences to read 1s"
         ## if GBS CUT2 = revcomp(CUT1)   ex: CTGCA"
         ## if ddRAD CUT2 = revcomp(CUT2) ex: AATT "
         if params["strict"]:
-            wheretocut1 = afilter(cut2, sseq1, params["strict"], 1)
+            wheretocut1 = afilter(cut2, sseq1, params["strict"], read=1)
         
         ## max allowed Ns
         if sseq1.count("N") <= int(params["maxN"]):
@@ -195,8 +203,6 @@ def rawedit(params, infile, quiet):
                                 seq[base] = iseq[base]
                             except IndexError: 
                                 pass
-                        else:
-                            seq[base] = "N"
                     else:
                         try:
                             seq[base] = iseq[base]
@@ -207,6 +213,7 @@ def rawedit(params, infile, quiet):
                 ## filter for gbs read2s, b/c they will be clustered"
                 badread = 0
                 if params["datatype"] == "pairgbs":
+                    ## only keep as much of read2 as there is of read1
                     sseq2 = sseq2[:len(sseq1)]
                     if sseq2.count("N") > params["maxN"]:
                         badread = 1
@@ -214,13 +221,14 @@ def rawedit(params, infile, quiet):
                 ## apply adapter filter to read 2
                 wheretocut2 = None
                 if params["strict"]:
-                    wheretocut2 = afilter(revcomp(cut1), sseq2, 
+                    wheretocut2 = afilter(fullcomp(cut1)[::-1], sseq2, 
                                           params["strict"], 2)
 
                 if wheretocut1 and wheretocut2:
                     cutter = min(wheretocut1, wheretocut2)
                 else:
                     cutter = max(wheretocut1, wheretocut2)
+
                 ## extra strict check for undigested cutsites
                 if params["strict"]:
                     if not cutter:
@@ -256,10 +264,10 @@ def rawedit(params, infile, quiet):
                         writing_r.append(sout)
                         keep += 1
                 else:
-                    ##...
+                    ## is bad read. Exclude.
                     pass
             else:
-                ## ...
+                ## seq1 too short.
                 pass
 
         if not orig % 50000:
@@ -336,33 +344,33 @@ def main(params, fastqs, quiet):
         ## submit jobs to queue
         for handle in infiles:
             ## trim name endings
-            name = handle.split('/')[-1]
-            while name.split(".")[-1] in ["fastq", "fastQ", "gz", 
+            finder= handle.split('/')[-1]
+            while finder.split(".")[-1] in ["fastq", "fastQ", "gz", 
                                           "fq", "FastQ", "nomerge"]:
-                name = name.replace('.'+name.split(".")[-1], "")
-            if '.forward.' in name:
-                name = name.split(".forward")[0]
+                finder = finder.replace('.'+finder.split(".")[-1], "")
+            if '.forward.' in finder:
+                finder = finder.split(".forward")[0]
             else:
-                "_".join(name.split('_R')[:-1])
+                "_".join(finder.split('_R')[:-1])
 
-            if params["work"]+"edits/"+name+".edit" \
-               not in glob.glob(params["work"]+"edits/*"):
+            print finder
+            if finder+".edit" not in glob.glob(params["work"]+"edits/*"):
+                ## exclude empties
                 if os.stat(handle).st_size > 0:     ## exclude empty files
-                    args = [params, handle, quiet]
-                    work_queue.put(args)
+                    work_queue.put([params, handle, quiet])
                     submitted += 1
                 else:
                     print 'skipping', handle, ", file is empty"
             else:
-                print "\t"+name+'.edit'+" already in edits/"
+                print "\t"+finder+'.edit'+" already in edits/"
+
     elif len(fastqs) == 1:
         ## if only one file "
         work_queue.put([params, glob.glob(infiles)[0], quiet])
         submitted += 1
 
     else:
-        print "no _paired_ de-multiplexed files found in this location."
-        sys.exit()
+        sys.exit("no _paired_ de-multiplexed files found in this location.")
 
     ## create a queue to pass to workers to store the results "
     result_queue = multiprocessing.Queue()
