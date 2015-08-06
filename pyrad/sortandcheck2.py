@@ -315,7 +315,10 @@ def writefunc(params, quiet, localcut):
     "create barcode dictionary"
 
     ## get barcode map
-    codetable = open(params["bcode"], 'r')
+    if params["bcode"]:
+        codetable = open(params["bcode"], 'r')
+    else:
+        sys.exit("cannot find barcodes file "+ params["bcode"])
     codes = [line.strip().split() for line in codetable.readlines()]
     bcdmap = {}
     for line in codes:

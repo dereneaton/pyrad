@@ -106,7 +106,7 @@ def cluster(params, handle, gid, quiet):
         cov = " -query_cov .60 "
     else:
         parg = " -leftjust "
-        cov = " -query_cov .60 "
+        cov = " -query_cov .90 "
     if 'vsearch' not in params["vsearch"]:
         mask = ""
         threads = " -threads 1"

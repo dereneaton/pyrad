@@ -216,7 +216,9 @@ def splitbigfilesforderep(dfiles, params):
 
 
 def fullcluster(params, outfolder, handle):
-    """ calls vsearch for clustering """
+    """ calls vsearch for clustering. 
+        query cov varies by data type, values were chosen 
+        based on experience, but could be edited by users """
     if params["datatype"] == 'pairddrad':
         comm = " -cluster_smallmem "+handle.replace(".edit", ".firsts")
     else:
@@ -226,10 +228,10 @@ def fullcluster(params, outfolder, handle):
         cov = " -query_cov .35 " 
     elif params["datatype"] == 'pairgbs':
         reverse = " -strand both "
-        cov = " -query_cov .60 " 
+        cov = " -query_cov .70 " 
     else:     ## rad, ddrad, ddradmerge
         reverse = " -leftjust "
-        cov = " -query_cov .60"
+        cov = " -query_cov .90"
     ## if vsearch and not usearch
     if 'vsearch' not in params["vsearch"]:
         masker = " "
