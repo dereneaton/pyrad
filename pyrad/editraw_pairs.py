@@ -267,8 +267,8 @@ def rawedit(params, infile, quiet):
                     else:
                         ## second read is good, not trimmed
                         sout = ">"+name+"_"+str(keep)+\
-                               "_pair"+"\n"+sseq1+"nnnn"+\
-                               fullcomp(sseq2[::-1]).rstrip("N")+"\n"
+                               "_pair"+"\n"+sseq1[:-1]+"nnnn"+\
+                               fullcomp(sseq2[::-1])[1:].rstrip("N")+"\n"
                         writing_r.append(sout)
                         keep += 1
                 else:

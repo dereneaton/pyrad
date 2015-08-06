@@ -355,14 +355,15 @@ def step2(params, stripped, quiet):
 
     ## check alternative fastq location
     if params["floc"]:
+        ## get all files in loc
         if params["floc"].endswith("/"):
             params["floc"] += "*"
         print >>sys.stderr, "\n\tsorted .fastq from "+\
                             params["floc"]+" being used"
+        ## raise error if no files
         if len(glob.glob(params["floc"])) < 1:
-            sys.stderr.write("\n\t... no files found in line 18 location"+\
-                             ", check required file name formatting\n")
-            sys.exit()
+            sys.exit("\n\t... no files found in line 18 location"+\
+                     ", check required file name formatting\n")
         else:
             fastqs = params["floc"]
 
@@ -386,7 +387,6 @@ def step2(params, stripped, quiet):
     if 'pair' not in params["datatype"]: 
         ## extra check on cut sites for ddrad data
         if params["datatype"] == 'ddrad':
-            print params["cut"], 'heres the cut'
             if "," not in params["cut"]:
                 print "\n\twarning: second restriction site "+\
                         "not entered, filtering will not use this information."
@@ -448,12 +448,13 @@ def step5(params, quiet):
             params["H"] = 0.01
             print "\n\tstep 4 values not detected, using E=0.001, H=0.01"
 
-    if 'pair' in params["datatype"]:
-        ## call consensus on each pair separately
-        consens_pairs.main(params, quiet)
-    else:
-        ## call consensus on single end clusters "
-        consensdp.main(params, quiet)
+    ## Ditching method for calling consensus separately on pairs... I think
+    #if params["datatype"] in ["pairddrad"]:
+    #    ## call consensus on each pair separately
+    #    consens_pairs.main(params, quiet)
+    #else:
+    #    ## call consensus on rad,ddrad,gbs,pairgbs,merge
+    consensdp.main(params, quiet)
 
 
 def step6(params, gids, groups, minhits, quiet):
