@@ -158,7 +158,7 @@ def rawedit(params, infile, quiet):
                 else:
                     seq[base] = "N"
             else:
-                if unambar(cut1):
+                if unambar(cut1)[1]:
                     seq[base] = unambar(cut1)[0][base]
                 else:
                     seq[base] = cut1[base]
