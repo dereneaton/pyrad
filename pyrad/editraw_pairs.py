@@ -205,7 +205,7 @@ def rawedit(params, infile, quiet):
                                 pass
                     else:
                         try:
-                            seq[base] = iseq[base]
+                            seq[base] = cut2[base]
                         except IndexError: 
                             pass
                 sseq2 = "".join(seq)
@@ -218,6 +218,8 @@ def rawedit(params, infile, quiet):
                     if sseq2.count("N") > params["maxN"]:
                         badread = 1
 
+
+                print sseq2
                 ## apply adapter filter to read 2
                 wheretocut2 = None
                 if params["strict"]:
