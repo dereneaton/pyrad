@@ -344,17 +344,16 @@ def main(params, fastqs, quiet):
         ## submit jobs to queue
         for handle in infiles:
             ## trim name endings
-            finder = handle.split('/')[-1]
+            finder = params["work"]+'edits/'+handle.split("/")[-1]
+
             while finder.split(".")[-1] in ["fastq", "fastQ", "gz", 
                                           "fq", "FastQ", "nomerge"]:
                 finder = finder.replace('.'+finder.split(".")[-1], "")
             if '.forward.' in finder:
-                finder = finder.split(".forward")[0]
+                finder = finder.split(".forward.")[0]
             else:
                 "_".join(finder.split('_R')[:-1])
 
-            print finder.replace(".forward", "")+".edit", "not in edits"
-            print glob.glob(params["work"]+"edits/*")
             if finder.replace(".forward", "")+".edit" \
                not in glob.glob(params["work"]+"edits/*"):
                 ## exclude empties
