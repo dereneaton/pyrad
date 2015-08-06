@@ -439,12 +439,12 @@ def alignwrappair(params, handle):
                 outfile.close()
             out = []
 
-    outfile = gzip.open(infile.replace(".clust", ".clustS"), 'a')
+    outfile = gzip.open(handle.replace(".clust", ".clustS"), 'a')
     if out:
         outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
     outfile.close()
     if outp:
-        outbads = gzip.open(infile.replace(".clust", ".badpairs"), 'a')
+        outbads = gzip.open(handle.replace(".clust", ".badpairs"), 'a')
         outbads.write("\n//\n//\n".join(outp)+"\n//\n//\n")
         outbads.close()
 
