@@ -219,7 +219,7 @@ def rawedit(params, infile, quiet):
                         badread = 1
 
 
-                print sseq2
+                print sseq2, cut2, fullcomp(cut1)[::-1]
                 ## apply adapter filter to read 2
                 wheretocut2 = None
                 if params["strict"]:
