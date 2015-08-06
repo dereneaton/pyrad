@@ -206,7 +206,7 @@ def rawedit(params, infile, quiet):
                                 pass
                     else:
                         try:
-                            seq[base] = cut2[base]
+                            seq[base] = fullcomp(cut1)[::-1]
                         except IndexError: 
                             pass
                 sseq2 = "".join(seq)
