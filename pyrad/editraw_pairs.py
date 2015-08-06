@@ -240,21 +240,22 @@ def rawedit(params, infile, quiet):
                     if cutter:
                         ## second read was trimmed
                         if cutter > max(32, params["trimkeep"]):
-                            ## include only the first read, with an 
-                            ## N placeholder for read2
-                            ## since it was trimmed off
-                            sout = ">"+name+"_"+str(keepcut)+\
-                                   "_trim1"+"\n"+sseq1[:cutter]+\
-                                   "nnnnN\n"
-                            writing_c.append(sout)
-                            keepcut += 1
                             ## cannot keep trimmed second read in 
                             ## pairddrad method but can in pairgbs
-
                             if params["datatype"] == 'pairgbs':
                                 sout = ">"+name+"_"+str(keepcut)+\
-                                       "_trim2\nNnnnn"+\
-                                       fullcomp(sseq2[:cutter+5])+"\n"
+                                       "_trimpair\n"+\
+                                       sseq1[:cutter]+"nnnn"+\
+                                       fullcomp(sseq2[:cutter])+"\n"
+                                writing_c.append(sout)
+                                keepcut += 1
+                            else:
+                                ## include only the first read, with an 
+                                ## N placeholder for read2
+                                ## since it was trimmed off
+                                sout = ">"+name+"_"+str(keepcut)+\
+                                       "_trim1"+"\n"+sseq1[:cutter]+\
+                                       "nnnnN\n"
                                 writing_c.append(sout)
                                 keepcut += 1
                     else:
