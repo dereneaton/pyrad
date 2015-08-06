@@ -19,7 +19,7 @@ def afilter(cut, seq, strict, read):
     check1 = check2 = wheretocut = None
     ## lookfor cut site "
 
-    if unambar(cut):
+    if unambar(cut)[1]:
         ## if ambiguity in cutter "        
         cuta, cutb = unambar(cut)
         if strict == 2:
@@ -214,7 +214,6 @@ def rawedit(params, infile, quiet):
                 badread = 0
                 if params["datatype"] == "pairgbs":
                     ## only keep as much of read2 as there is of read1
-                    print len(sseq1)
                     sseq2 = sseq2[:len(sseq1)]
                     if sseq2.count("N") > params["maxN"]:
                         badread = 1
