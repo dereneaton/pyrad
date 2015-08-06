@@ -353,7 +353,8 @@ def main(params, fastqs, quiet):
             else:
                 "_".join(finder.split('_R')[:-1])
 
-            print finder.replace(".forward", "")+".edit"
+            print finder.replace(".forward", "")+".edit", "not in edits"
+            print glob.glob(params["work"]+"edits/*")
             if finder.replace(".forward", "")+".edit" \
                not in glob.glob(params["work"]+"edits/*"):
                 ## exclude empties
