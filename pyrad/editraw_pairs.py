@@ -248,7 +248,7 @@ def rawedit(params, infile, quiet):
                                 sout = ">"+name+"_"+str(keepcut)+\
                                        "_trimpair\n"+\
                                        sseq1[:cutter]+"nnnn"+\
-                                       fullcomp(sseq2[1:cutter])[::-1].\
+                                       fullcomp(sseq2[:cutter])[::-1].\
                                                 lstrip("N")+"\n"
                                 writing_c.append(sout)
                                 keepcut += 1
