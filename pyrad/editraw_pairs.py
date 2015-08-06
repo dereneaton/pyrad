@@ -344,7 +344,7 @@ def main(params, fastqs, quiet):
         ## submit jobs to queue
         for handle in infiles:
             ## trim name endings
-            finder= handle.split('/')[-1]
+            finder = handle.split('/')[-1]
             while finder.split(".")[-1] in ["fastq", "fastQ", "gz", 
                                           "fq", "FastQ", "nomerge"]:
                 finder = finder.replace('.'+finder.split(".")[-1], "")
@@ -353,8 +353,9 @@ def main(params, fastqs, quiet):
             else:
                 "_".join(finder.split('_R')[:-1])
 
-            print finder
-            if finder+".edit" not in glob.glob(params["work"]+"edits/*"):
+            print finder.replace(".forward", "")+".edit"
+            if finder.replace(".forward", "")+".edit" \
+               not in glob.glob(params["work"]+"edits/*"):
                 ## exclude empties
                 if os.stat(handle).st_size > 0:     ## exclude empty files
                     work_queue.put([params, handle, quiet])
