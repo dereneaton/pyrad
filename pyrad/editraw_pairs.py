@@ -181,7 +181,7 @@ def rawedit(params, infile, quiet):
                 qscore = [ord(i) for i in itera2[3].strip()]
                 ## if PEAR filtered then seqs are revcomps "
                 if '.forward' in infile:
-                    iseq = revcomp(iseq)
+                    iseq = fullcomp(iseq)[::-1]
                     qscore = qscore[::-1]
                 offset = int(params["Q"])
                 phred = [x-offset for x in qscore]
