@@ -194,7 +194,6 @@ def rawedit(params, infile, quiet):
                 offset = int(params["Q"])
                 phred = [x-offset for x in qscore]
                 seq = ["N"]*len(phred)
-                print iseq
                 for base in range(len(phred)):
                     ## don't quality check cut site                    
                     if base > len(cut2):
@@ -219,7 +218,6 @@ def rawedit(params, infile, quiet):
                     if sseq2.count("N") > params["maxN"]+len(cut2):
                         badread = 1
 
-                print sseq2, cut2, fullcomp(cut1)[::-1]
                 ## apply adapter filter to read 2
                 wheretocut2 = None
                 if params["strict"]:
