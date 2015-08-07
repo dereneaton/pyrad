@@ -350,7 +350,7 @@ def alignfast(names, seqs, muscle):
 
 
 ## DEPRECATED AS OF V.3.1
-# def alignwrappair(params, handle):
+#def alignwrappair(params, handle):
 #     """ same as alignwrap but for pairddrads,
 #         feeds in first and second reads separately """
 #     ## iterator for 2 lines at a time
@@ -408,7 +408,6 @@ def alignfast(names, seqs, muscle):
 #             for i in range(len(anames2)):
 #                 somedic2[anames2[i]] = aseqs2[i]
 
-
 #         else:
 #             if seqs:  ## sequence could have been trimmed
 #                 stack.append("_".join(names[0].split("_")[:-1])+'\n'+seqs[0])
@@ -430,6 +429,7 @@ def alignfast(names, seqs, muscle):
 #     outfile.close()
     
     
+
 def alignwrap(params, handle):
     """ splits clusters and feeds them into alignfast function """
     ## iterator for 2 lines at a time
@@ -453,9 +453,14 @@ def alignwrap(params, handle):
         names = []   
         seqs = []
         while itera[0] != "//\n":
+            print '0', itera[0]
+            print '1', itera[1]
             names.append(itera[0].strip())
             seqs.append(itera[1].strip().replace("NNNN", "xx"))
-            itera = duo.next()
+            try: 
+                itera = duo.next()
+            except StopIteration: 
+                print 'stopped', itera
         if len(names) > 1:
             ## keep only the 200 most common dereps, 
             ## aligning more is surely junk
@@ -491,7 +496,7 @@ def alignwrap(params, handle):
             out.append("\n".join(stack))
 
         cnts += 1
-        ## only write to file after 1k aligned loci
+        ## only write to file after 500 aligned loci
         if not cnts % 500:
             if out:
                 outfile = gzip.open(handle.replace(".clust", ".clustS"), 'a')
@@ -572,14 +577,19 @@ def final(params, outfolder, handle, fileno, remake, quiet):
                           read().strip().split("//\n")
 
     start = time.time()
-    maxthreads = 4 #int(params["threads"])
-    chunklen = (len(unaligned) + maxthreads - 1) // maxthreads
+    chunk1 = len(unaligned)//6
+    chunk2 = len(unaligned)//6
+    chunk3 = (len(unaligned)-(chunk1+chunk2))//2
+    chunk4 = (len(unaligned)-(chunk1+chunk2+chunk3))
 
-    # Create argument tuples for each input chunk
-    ## but do not space chunks evenly, b/c only the first few
-    ## chunks have alignable files, the latters will have singletons
-    chunks = [unaligned[i * chunklen:(i + 1) * chunklen] \
-              for i in range(maxthreads)]
+    #chunklen = (len(unaligned) + maxthreads - 1) // maxthreads
+    chunks = [unaligned[0:chunk1], 
+              unaligned[chunk1:chunk2],
+              unaligned[chunk2:chunk3],
+              unaligned[chunk3:chunk4]]
+
+    #chunks = [unaligned[i * chunklen:(i + 1) * chunklen] \
+    #          for i in range(maxthreads)]
 
     for chunk in range(len(chunks)):
         fchunk = gzip.open(outfolder+"/"+handle.split("/")[-1]\
