@@ -303,7 +303,7 @@ def stats(params, outfolder, handle, quiet):
            me, std, len(keep), 
            mek, stdk]
 
-    bins = [0, 5, 10, 15, 20, 25, 30, 35, 40, 50, 100, 250, 500, 99999]
+    bins = range(1,20)+[25, 30, 35, 40, 50, 100, 250, 500, 99999]
     ohist, edges = numpy.histogram(depth, bins)
     hist = [float(i)/sum(ohist) for i in ohist]
     hist = [int(round(i*30)) for i in hist]
@@ -581,10 +581,10 @@ def final(params, outfolder, handle, fileno, remake, quiet):
                           replace(".edit", ".clust.gz"), 'r').\
                           read().strip().split("//\n//\n")
 
-    chunk0 = len(unaligned)//12
-    chunk1 = len(unaligned)//9
-    chunk2 = len(unaligned)//6
-    chunk3 = len(unaligned)//3
+    chunk0 = len(unaligned)//20
+    chunk1 = len(unaligned)//15
+    chunk2 = len(unaligned)//10
+    chunk3 = len(unaligned)//5
     chunk4 = (len(unaligned)-(chunk1+chunk2+chunk3))
 
     print len(unaligned), chunk0, chunk1, chunk2, chunk3, chunk4
