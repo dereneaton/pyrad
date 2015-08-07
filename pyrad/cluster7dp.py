@@ -42,7 +42,7 @@ def makederepclust(params, outfolder, handle):
                         replace(".edit", ".clust.gz"), 'w')
 
     ## load reads into a dictionary"
-    hits = {}  ## D = {}
+    hits = {}  
     dereps = open(handle.replace(".edit", ".derep")).read()  ## f
     for line in dereps.split(">")[1:]:
         # Workaround to comply with both vsearch and usearch
@@ -73,9 +73,9 @@ def makederepclust(params, outfolder, handle):
     for key, values in udic.items():
         seq = key+"\n"+hits[key][1]+'\n'  
         matchnames = [i[0] for i in values]       ## names of matches (S)
-        forwrev = [i[1] for i in values]       ## + or - for strands (R)
-        cov = [int(float(i[2])) for i in values]  ## query coverage (overlap)
-        ins = [int(i[3]) for i in values]  ## indels
+        forwrev = [i[1] for i in values]          ## + or - for strands (R)
+        #cov = [int(float(i[2])) for i in values]  ## query coverage (overlap)
+        ins = [int(i[3]) for i in values]         ## indels
 
         ## allow only 'w1' indels in hits to seed
         if not any([int(i) > int(params["w1"]) for i in ins]):
@@ -83,9 +83,9 @@ def makederepclust(params, outfolder, handle):
                 if forwrev[i] == "+":
 
                     ## only match forward reads if high Cov
-                    if cov[i] >= 90:
-                        seq += matchnames[i]+'+\n'+\
-                               hits[matchnames[i]][1]+"\n"
+                    #if cov[i] >= 90:
+                    seq += matchnames[i]+'+\n'+\
+                           hits[matchnames[i]][1]+"\n"
                 else:
                     ## name change for reverse hits
                     ## allow low Cov for reverse hits
@@ -123,6 +123,7 @@ def makederepclust(params, outfolder, handle):
             popped = diff.pop()
             hits[hits.keys()[0]][1].replace("n", "Z").upper().replace("Z", "n")            
             outfile.write(popped+"\n"+hits[hits.keys()[0]][1]+'\n')
+    #outfile.write("\n")
     outfile.write("//\n//\n")
     outfile.close()
     del dereps
@@ -408,6 +409,13 @@ def alignfast(names, seqs, muscle):
 #             for i in range(len(anames2)):
 #                 somedic2[anames2[i]] = aseqs2[i]
 
+            # ## reorder keys by derep number "
+            # keys = somedic.keys()
+            # keys.sort(key=lambda x: int(x.split(";")[1].\
+            #               replace("size=", "")), reverse=True)
+            # for key in keys:
+            #     stack.append(key+'\n'+somedic[key][leftlimit:])
+
 #         else:
 #             if seqs:  ## sequence could have been trimmed
 #                 stack.append("_".join(names[0].split("_")[:-1])+'\n'+seqs[0])
@@ -453,14 +461,9 @@ def alignwrap(params, handle):
         names = []   
         seqs = []
         while itera[0] != "//\n":
-            print '0', itera[0]
-            print '1', itera[1]
             names.append(itera[0].strip())
             seqs.append(itera[1].strip().replace("NNNN", "xx"))
-            try: 
-                itera = duo.next()
-            except StopIteration: 
-                print 'stopped', itera
+            itera = duo.next()
         if len(names) > 1:
             ## keep only the 200 most common dereps, 
             ## aligning more is surely junk
@@ -554,7 +557,9 @@ def orderseqs(names, seqs):
 def final(params, outfolder, handle, fileno, remake, quiet):
     """ run the full script """
 
-    if not remake:
+    if remake:
+        pass
+    else:
         ## de-replicate the reads if not done by big file method"
         if handle.replace(".edit", ".derep") not in \
                           glob.glob(params["work"]+"edits/*"):
@@ -565,6 +570,7 @@ def final(params, outfolder, handle, fileno, remake, quiet):
         #    if handle.replace(".edit", ".firsts") not in \
         #                      glob.glob(params["work"]+"edits/*"):
         #        splitter(handle)
+
         ## cluster the reads "
         fullcluster(params, outfolder, handle)
 
@@ -574,7 +580,7 @@ def final(params, outfolder, handle, fileno, remake, quiet):
     # thread each align job on N processors
     unaligned = gzip.open(outfolder+"/"+handle.split("/")[-1].\
                           replace(".edit", ".clust.gz"), 'r').\
-                          read().strip().split("//\n")
+                          read().strip().split("//\n//\n")
 
     start = time.time()
     chunk1 = len(unaligned)//6
@@ -582,19 +588,18 @@ def final(params, outfolder, handle, fileno, remake, quiet):
     chunk3 = (len(unaligned)-(chunk1+chunk2))//2
     chunk4 = (len(unaligned)-(chunk1+chunk2+chunk3))
 
+    print len(unaligned), chunk1, chunk2, chunk3, chunk4
+
     #chunklen = (len(unaligned) + maxthreads - 1) // maxthreads
     chunks = [unaligned[0:chunk1], 
-              unaligned[chunk1:chunk2],
-              unaligned[chunk2:chunk3],
-              unaligned[chunk3:chunk4]]
-
-    #chunks = [unaligned[i * chunklen:(i + 1) * chunklen] \
-    #          for i in range(maxthreads)]
+              unaligned[chunk1:chunk1+chunk2],
+              unaligned[chunk1+chunk2:chunk1+chunk2+chunk3],
+              unaligned[chunk1+chunk2+chunk3:]]
 
     for chunk in range(len(chunks)):
         fchunk = gzip.open(outfolder+"/"+handle.split("/")[-1]\
                     .replace(".edit", ".clust.i"+str(chunk)+".gz"), 'w')
-        fchunk.write("//\n".join(chunks[chunk])+"//\n")
+        fchunk.write("//\n//\n".join(chunks[chunk])+"//\n//\n")
         fchunk.close()
 
     jobs = []
@@ -626,7 +631,6 @@ def final(params, outfolder, handle, fileno, remake, quiet):
         os.remove(rmfile)
 
     print time.time()-start
-    sys.exit("done")
 
     ## get stats 
     out, edges, hist, ohist = stats(params,
@@ -650,6 +654,22 @@ def final(params, outfolder, handle, fileno, remake, quiet):
     outwrite.close()
 
 
+def remake_func(outfolder):
+    """ tries to rebuild clusters from .u and ._temp files """
+    for ufile in glob.glob(outfolder+"/*.u"):
+        #infile = open(ufile).readlines()
+        ## delete the last line in the file that was probably
+        ## not completely written
+        cmd = "/bin/sed '$d' < " + ufile + " > tempfile"
+        subprocess.call(cmd, shell=True) ##os.system(cmd)
+        ## make a backup b/c this isn't tested enough yet
+        cmd = "/bin/mv "+ufile+" "+ufile+".backup"
+        os.system(cmd)
+        ## replace original that is backed up with the new file
+        ## that has the last line removed.
+        cmd = "/bin/mv tempfile "+ufile
+        os.system(cmd)
+
 
 def main(params, quiet, remake):
     """ calls the main script """
@@ -658,7 +678,7 @@ def main(params, quiet, remake):
     if not os.path.exists(params["work"]+'edits/'):
         sys.exit("\terror: could not find edits/ folder in working directory")
 
-    ## make output folder for clusters
+    ## make output folder for clusters    
     if not os.path.exists(params["work"]+'clust'+params["wclust"]):
         os.makedirs(params["work"]+'clust'+params["wclust"])
     outfolder = params["work"]+'clust'+str(params["wclust"])
@@ -667,19 +687,7 @@ def main(params, quiet, remake):
 
     ## remake option... in development"
     if remake:
-        for ufile in glob.glob(outfolder+"/*.u"):
-            #infile = open(ufile).readlines()
-            ## delete the last line in the file that was probably
-            ## not completely written
-            cmd = "/bin/sed '$d' < " + ufile + " > tempfile"
-            subprocess.call(cmd, shell=True) ##os.system(cmd)
-            ## make a backup b/c this isn't tested enough yet
-            cmd = "/bin/mv "+ufile+" "+ufile+".backup"
-            os.system(cmd)
-            ## replace original that is backed up with the new file
-            ## that has the last line removed.
-            cmd = "/bin/mv tempfile "+ufile
-            os.system(cmd)
+        remake_func(outfolder)
 
     dfiles = []   ## FS
 
@@ -774,6 +782,7 @@ def main(params, quiet, remake):
         worker.start()
     for j in jobs:
         j.join()
+
 
     ## output statistics on depth of coverage"
     outstats = open(params["work"]+"stats/s3.clusters.txt", 'a')
