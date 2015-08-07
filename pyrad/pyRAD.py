@@ -409,11 +409,7 @@ def step3(params, quiet, remake):
 def step4(params, quiet):
     """ get parameters for making consensus base calls """
     ## even if using low depth option limit mindepth for statistical calls
-    if params["mindepth"] < 5:
-        tempmindepth = 5
-    else:
-        tempmindepth = params["mindepth"]
-    H_err_dp.main(params, quiet, tempmindepth) 
+    H_err_dp.main(params, quiet)
 
 
 def step5(params, quiet):
