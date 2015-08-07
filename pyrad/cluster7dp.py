@@ -16,6 +16,7 @@ import operator
 import gzip
 import re
 import fileinput
+import shutil
 import time
 from potpour import Worker
 
@@ -453,7 +454,7 @@ def alignwrap(params, handle):
         seqs = []
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip()) #.replace("nnnn", ""))
+            seqs.append(itera[1].strip().replace("NNNN", "nnnn"))
             itera = duo.next()
         if len(names) > 1:
             ## keep only the 200 most common dereps, 
@@ -571,13 +572,12 @@ def final(params, outfolder, handle, fileno, remake, quiet):
                           read().strip().split("//\n")
 
     start = time.time()
-    maxthreads = 8
+    maxthreads = int(params["threads"])
     chunklen = (len(unaligned) + maxthreads - 1) // maxthreads
 
     # Create argument tuples for each input chunk
     chunks = [unaligned[i * chunklen:(i + 1) * chunklen] \
               for i in range(maxthreads)]
-    #print [len(i) for i in chunks]
 
     for chunk in range(len(chunks)):
         fchunk = gzip.open(outfolder+"/"+handle.split("/")[-1]\
@@ -604,13 +604,12 @@ def final(params, outfolder, handle, fileno, remake, quiet):
     if len(sublist) > 0:
         fhandle = os.path.join(outfolder, 
                     handle.replace(".edit", ".clustS.gz").split("/")[-1])
-        fout = gzip.open(fhandle, 'w')
-        for line in fileinput.input(sublist):
-            fout.write(line)
-        fout.close()
+        with gzip.open(fhandle, 'wb') as wfp:
+            for ifile in sublist:
+                with gzip.open(ifile, 'rb') as rfp:
+                    shutil.copyfileobj(rfp, wfp)
+                os.remove(ifile)
 
-    for rmfile in sublist:
-        os.remove(rmfile)   
     for rmfile in [i.replace(".clustS.", ".clust.") for i in sublist]:
         os.remove(rmfile)
 

@@ -214,7 +214,7 @@ def rawedit(params, infile, quiet):
                 badread = 0
                 if params["datatype"] == "pairgbs":
                     ## only keep as much of read2 as there is of read1
-                    sseq2 = sseq2[:len(sseq1)]
+                    #sseq2 = sseq2[:len(sseq1)]   HERE
                     if sseq2.count("N") > params["maxN"]+len(cut2):
                         badread = 1
 
@@ -236,9 +236,7 @@ def rawedit(params, infile, quiet):
                            (cut2 in sseq1[-10:]):
                             cutter = len(sseq1)-16
 
-
-                ## TODO
-                ## check, does pairgbs fixes break pairddrad
+                ## TODO: check, does pairgbs fixes break pairddrad
                 if not badread:
                     if cutter:
                         ## second read was trimmed
@@ -259,14 +257,14 @@ def rawedit(params, infile, quiet):
                                 ## since it was trimmed off
                                 sout = ">"+name+"_"+str(keepcut)+\
                                        "_trim1"+"\n"+sseq1[:cutter]+\
-                                       "nnnnN\n"
+                                       "nnnnN\n"   
                                 writing_c.append(sout)
                                 keepcut += 1
                     else:
                         ## second read is good, not trimmed
                         sout = ">"+name+"_"+str(keep)+\
                                "_pair"+"\n"+sseq1[:-1]+"nnnn"+\
-                               fullcomp(sseq2[::-1])[1:].rstrip("N")+"\n"
+                               fullcomp(sseq2[::-1]).rstrip("N")+"\n"  ## HERE
                         writing_r.append(sout)
                         keep += 1
                 else:
