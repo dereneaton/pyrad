@@ -17,7 +17,6 @@ import gzip
 import re
 import fileinput
 import shutil
-import time
 from potpour import Worker
 
 
@@ -351,92 +350,92 @@ def alignfast(names, seqs, muscle):
 
 
 ## DEPRECATED AS OF V.3.1
-#def alignwrappair(params, handle):
-#     """ same as alignwrap but for pairddrads,
-#         feeds in first and second reads separately """
-#     ## iterator for 2 lines at a time
-#     infile = gzip.open(handle)
-#     duo = itertools.izip(*[iter(infile)]*2)
+def alignwrappair(params, handle):
+    """ same as alignwrap but for pairddrads,
+        feeds in first and second reads separately """
+    ## iterator for 2 lines at a time
+    infile = gzip.open(handle)
+    duo = itertools.izip(*[iter(infile)]*2)
 
-#     ## lists for storing first and second aligned loci
-#     out = []
-#     cnts = 0
+    ## clear file if it exists
+    if os.path.exists(handle.replace(".clust", ".clustS")):
+        os.remove(handle.replace(".clust", ".clustS"))
 
-#     while 1:
-#         try:
-#             first = duo.next()
-#         except StopIteration:
-#             break
-#         itera = [first[0], first[1]]
-#         names = []   
-#         seqs = []
-#         stack = []
-#         nameiter = 0
+    ## list for storing until writing
+    out = []
+    cnts = 0
+    while 1:
+        try: 
+            first = duo.next()
+        except StopIteration:
+            break
+        itera = [first[0], first[1]]
+        stack = []
+        names = []   
+        seqs = []
+        #nameiter = 0
+        while itera[0] != "//\n":
+            names.append(itera[0].strip())
+            seqs.append(itera[1].strip()) ##.replace("nnnn", ""))
+            itera = duo.next()
+            #nameiter += 1
 
-#         ##read in all data for this stack "
-#         while itera[0] != "//\n":
-#             names.append(itera[0].strip()+"_"+str(nameiter))
-#             seqs.append(itera[1].strip())  ## .upper())
-#             itera = duo.next()
-#             nameiter += 1
+        ## if longer than 1 it needs aligning "
+        if len(names) > 1:
+            firsts = [i.split("n")[0] for i in seqs]
+            seconds = [i.split("n")[-1] for i in seqs]
 
-#         ## if longer than 1 it needs aligning "
-#         if len(names) > 1:
-#             firsts = [i.split("n")[0] for i in seqs]
-#             seconds = [i.split("n")[-1] for i in seqs]
-
-#             ## align first reads "
-#             stringnames = alignfast(names[0:200], 
-#                                     firsts[0:200],
-#                                     params["muscle"])
-#             anames1, aseqs1 = sortalign(stringnames)
-#             somedic1 = {}
-#             for i in range(len(anames1)):
-#                 somedic1[anames1[i]] = aseqs1[i]
+            ## align first reads "
+            stringnames = alignfast(names[0:200], 
+                                    firsts[0:200],
+                                    params["muscle"])
+            anames1, aseqs1 = sortalign(stringnames)
+            somedic1 = {}
+            for i in range(len(anames1)):
+                somedic1[anames1[i]] = aseqs1[i]
             
-#             ## reorder keys by nameiter order
-#             keys = somedic1.keys()
-#             keys.sort(key=lambda x: int(x.split(";")[1].\
-#                                         replace("size=", "")),
-#                                         reverse=True)
+            ## reorder keys by nameiter order
+            keys = somedic1.keys()
+            keys.sort(key=lambda x: int(x.split(";")[1].\
+                                        replace("size=", "")),
+                                        reverse=True)
 
-#             ## align second reads "
-#             stringnames = alignfast(names[0:200],
-#                                     seconds[0:200],
-#                                     params["muscle"])
-#             anames2, aseqs2 = sortalign(stringnames)
-#             somedic2 = {}
-#             for i in range(len(anames2)):
-#                 somedic2[anames2[i]] = aseqs2[i]
+            ## align second reads "
+            stringnames = alignfast(names[0:200],
+                                    seconds[0:200],
+                                    params["muscle"])
+            anames2, aseqs2 = sortalign(stringnames)
+            somedic2 = {}
+            for i in range(len(anames2)):
+                somedic2[anames2[i]] = aseqs2[i]
 
-            # ## reorder keys by derep number "
-            # keys = somedic.keys()
-            # keys.sort(key=lambda x: int(x.split(";")[1].\
-            #               replace("size=", "")), reverse=True)
-            # for key in keys:
-            #     stack.append(key+'\n'+somedic[key][leftlimit:])
+            ## reorder keys by derep number "
+            keys = somedic1.keys()
+            keys.sort(key=lambda x: int(x.split(";")[1].\
+                          replace("size=", "")), reverse=True)
+            for key in keys:
+                stack.append(key+'\n'+somedic1[key]+"nnnn"+somedic2[key])
 
-#         else:
-#             if seqs:  ## sequence could have been trimmed
-#                 stack.append("_".join(names[0].split("_")[:-1])+'\n'+seqs[0])
+        else:
+            if names:
+                stack = [names[0]+"\n"+seqs[0]]
 
-#         cnts += 1
-#         if stack:
-#             out.append("\n".join(stack))
+        cnts += 1
+        if stack:
+            out.append("\n".join(stack))
 
-#         if not cnts % 5000:
-#             if out:
-#                 outfile = gzip.open(handle.replace(".clust", ".clustS"), 'a')
-#                 outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
-#                 outfile.close()
-#             out = []
+        if not cnts % 500:
+            if out:
+                outfile = gzip.open(handle.replace(".clust", ".clustS"), 'a')
+                outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
+                outfile.close()
+            out = []
 
-#     outfile = gzip.open(handle.replace(".clust", ".clustS"), 'a')
-#     if out:
-#         outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
-#     outfile.close()
-    
-    
+    outfile = gzip.open(handle.replace(".clust", ".clustS"), 'a')
+    if out:
+        outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
+    outfile.close()
+
 
 def alignwrap(params, handle):
     """ splits clusters and feeds them into alignfast function """
@@ -582,19 +581,20 @@ def final(params, outfolder, handle, fileno, remake, quiet):
                           replace(".edit", ".clust.gz"), 'r').\
                           read().strip().split("//\n//\n")
 
-    start = time.time()
-    chunk1 = len(unaligned)//6
+    chunk0 = len(unaligned)//12
+    chunk1 = len(unaligned)//9
     chunk2 = len(unaligned)//6
-    chunk3 = (len(unaligned)-(chunk1+chunk2))//2
+    chunk3 = len(unaligned)//3
     chunk4 = (len(unaligned)-(chunk1+chunk2+chunk3))
 
-    print len(unaligned), chunk1, chunk2, chunk3, chunk4
+    print len(unaligned), chunk0, chunk1, chunk2, chunk3, chunk4
 
     #chunklen = (len(unaligned) + maxthreads - 1) // maxthreads
-    chunks = [unaligned[0:chunk1], 
-              unaligned[chunk1:chunk1+chunk2],
-              unaligned[chunk1+chunk2:chunk1+chunk2+chunk3],
-              unaligned[chunk1+chunk2+chunk3:]]
+    chunks = [unaligned[0:chunk0],
+              unaligned[chunk0:chunk0+chunk1], 
+              unaligned[chunk0+chunk1:chunk0+chunk1+chunk2],
+              unaligned[chunk0+chunk1+chunk2:chunk0+chunk1+chunk2+chunk3],
+              unaligned[chunk0+chunk1+chunk2+chunk3:]]
 
     for chunk in range(len(chunks)):
         fchunk = gzip.open(outfolder+"/"+handle.split("/")[-1]\
@@ -608,7 +608,10 @@ def final(params, outfolder, handle, fileno, remake, quiet):
     for j in range(len(chunks)):
         temp_queue.put([params, outfolder+"/"+handle.split("/")[-1].\
                          replace(".edit", ".clust.i"+str(j)+".gz")])
-        worker = Worker(temp_queue, fake_queue, alignwrap)
+        if 'pair' in params["datatype"]:
+            worker = Worker(temp_queue, fake_queue, alignwrappair)
+        else:
+            worker = Worker(temp_queue, fake_queue, alignwrap)            
         jobs.append(worker)
         worker.start()
     for j in jobs:
@@ -629,8 +632,6 @@ def final(params, outfolder, handle, fileno, remake, quiet):
 
     for rmfile in [i.replace(".clustS.", ".clust.") for i in sublist]:
         os.remove(rmfile)
-
-    print time.time()-start
 
     ## get stats 
     out, edges, hist, ohist = stats(params,
