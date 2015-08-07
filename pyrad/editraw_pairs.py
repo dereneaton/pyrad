@@ -214,7 +214,7 @@ def rawedit(params, infile, quiet):
                 badread = 0
                 if params["datatype"] == "pairgbs":
                     ## only keep as much of read2 as there is of read1
-                    #sseq2 = sseq2[:len(sseq1)]   HERE
+                    sseq2 = sseq2[:len(sseq1)] 
                     if sseq2.count("N") > params["maxN"]+len(cut2):
                         badread = 1
 

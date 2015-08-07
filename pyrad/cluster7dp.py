@@ -454,7 +454,7 @@ def alignwrap(params, handle):
         seqs = []
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip().replace("NNNN", "nnnn"))
+            seqs.append(itera[1].strip().replace("NNNN", "xx"))
             itera = duo.next()
         if len(names) > 1:
             ## keep only the 200 most common dereps, 
@@ -492,7 +492,7 @@ def alignwrap(params, handle):
 
         cnts += 1
         ## only write to file after 1k aligned loci
-        if not cnts % 200:
+        if not cnts % 500:
             if out:
                 outfile = gzip.open(handle.replace(".clust", ".clustS"), 'a')
                 outfile.write("\n//\n//\n".join(out)+"\n//\n//\n")
@@ -572,10 +572,12 @@ def final(params, outfolder, handle, fileno, remake, quiet):
                           read().strip().split("//\n")
 
     start = time.time()
-    maxthreads = int(params["threads"])
+    maxthreads = 4 #int(params["threads"])
     chunklen = (len(unaligned) + maxthreads - 1) // maxthreads
 
     # Create argument tuples for each input chunk
+    ## but do not space chunks evenly, b/c only the first few
+    ## chunks have alignable files, the latters will have singletons
     chunks = [unaligned[i * chunklen:(i + 1) * chunklen] \
               for i in range(maxthreads)]
 
