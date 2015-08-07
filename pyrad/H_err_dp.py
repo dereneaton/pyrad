@@ -125,7 +125,6 @@ def table_c(stack):
 
 def consensus(params, handle, cut1, cut2):
     """ makes a list of lists of reads at each site """
-    #f, minsamp, CUT1, CUT2, datatype):
     infile = gzip.open(handle)
     duo = itertools.izip(*[iter(infile)]*2)
     stacked = []
@@ -179,8 +178,8 @@ def consensus(params, handle, cut1, cut2):
         else:
             for seq in range(len(thisstack)):
                 thisstack[seq] = thisstack[seq][len(cut1):]
-        
-        if len(thisstack) >= params["minsamp"]:
+
+        if len(thisstack) >= min(5, params["mindepth"]):
             arrayed = np.array(thisstack)
             ## make list for each site in sequences
             res = [Counter(seq) for seq in arrayed.T]
@@ -189,10 +188,13 @@ def consensus(params, handle, cut1, cut2):
     return stacked
 
 
+def toarray(uniqstack):
+    """ converts string lists to arrays"""
+    return np.array([int(i) for i in uniqstack[1:-1].strip().split(',')])
+
 
 def optim(params, handle, cut1, cut2, quiet):
     """ fun scipy optimize to find best parameters"""
-    ##WORK,handle, minsamp, CUT1, CUT2, datatype, haplos):
     name = handle.split("/")[-1].replace(".clustS.gz", "")
 
     ## make a list of Counter objects for each site in each stack
@@ -203,14 +205,8 @@ def optim(params, handle, cut1, cut2, quiet):
 
     ## get tabled counts of base patterns
     tabled_stacks = table_c(stacked)
-
-    def toarray(uniqstack):
-        """ converts string lists to arrays"""
-        return np.array([int(i) for i in uniqstack[1:-1].strip().split(',')])
-
     stacks = np.array([toarray(i) for i in tabled_stacks.keys()])
     stackcounts = np.array(tabled_stacks.values())
-
     del stacked
 
     ## if data are haploid fix H to 0
@@ -243,13 +239,9 @@ def optim(params, handle, cut1, cut2, quiet):
         sys.stderr.write(".")
 
 
-def main(params, quiet, mindepth):
+def main(params, quiet):
     """ calls the main functions """
 
-    ## assign tempmindepth to params
-    params["mindepth"] = mindepth
-
-    ##Parallel,ID,minsamp,subset,haplos,WORK,CUT,datatype):
     if not quiet:
         sys.stderr.write("\n\tstep 4: estimating error rate "+\
                          "and heterozygosity\n\t")
@@ -263,15 +255,15 @@ def main(params, quiet, mindepth):
                             "\n\t\tfiles to a new directory named clust.xx "+\
                             "with xx replaced by new clustering threshold")
 
-    # warning message for low minsamp
+    # warning message for low mindepth
     if params["mindepth"] < 5:
-        sys.stderr.write("\n\twarning: Mindepth < 5 is not recommended\n"+\
-               "\t\tfor this step. If you intend to make low\n"+\
-               "\t\tcoverage base calls use a high mindepth in\n"+\
-               "\t\tstep 4 to accurately infer H & E parameters, \n"+\
-               "\t\tand then use a low mindepth in conjunction \n"+\
-               "\t\twith the line 31 params file option to make\n"+\
-               "\t\tlow coverage base calls")
+        sys.exit("\n\tWarning: Raise mindepth (param 8) >= 5. \n"+\
+               "\t\tIt is recommended you use 5 or greater for param 8\n"+\
+               "\t\tto make statistical base calls, and if you wish \n"+\
+               "\t\tto make further low coverage base calls to set \n"+\
+               "\t\ta lower minimum value in param 31 for majority rule\n"+\
+               "\t\tbase calls\n")
+
         
     # if haploid data
     if params["haplos"] == 1:
