@@ -20,7 +20,7 @@ from optparse import OptionParser
 try:
     from collections import OrderedDict
 except ImportError:
-    from ordereddict import OrderedDict
+    sys.exit("\n\tTo run pyrad please upgrade to Python 2.7")
 #-------------
 import sortandcheck2
 import editraw_rads
@@ -389,7 +389,7 @@ def step2(params, stripped, quiet):
         if params["datatype"] == 'ddrad':
             if "," not in params["cut"]:
                 print "\n\twarning: second restriction site "+\
-                        "not entered, filtering will not use this information."
+                    "not entered, filtering will not use this information."
         editraw_rads.main(params, fastqs, quiet)
 
     else: 
@@ -458,6 +458,7 @@ def step6(params, gids, groups, minhits, quiet):
         approach if hierarch groups are provided """
 
     if not params["hierarch"]:
+        ## Regular clustering
         if "," in params["subset"]:
             inlist = [params["work"]+"clust"+params["wclust"]+\
                       "/"+i+".consens*" for i in params["subset"]\
@@ -467,22 +468,21 @@ def step6(params, gids, groups, minhits, quiet):
                                "/"+params["subset"]+"*.consens*")
 
         excludes = params["exclude"].strip().split(",")
-        names = [i.split("/")[-1].replace(".consens.gz","") for i in inlist]
+        names = [i.split("/")[-1].replace(".consens.gz", "") for i in inlist]
         fulllist = [i for i, j in zip(inlist, names) if j not in excludes]
 
         ## cluster consens files in inlist
         cluster_cons7_shuf.main(params, fulllist, "", "", "", quiet)
-        ## vsearch, wclust, datatype, 
-        ## outgroup, seed, gids, minhits, 
-        ## inlist, WORK, MASK, 0)
         if not quiet:
             sys.stderr.write("\n\tfinished clustering\n")
 
     else:
+        ## Hierarchical clustering
         print gids
         print groups
         print minhits
 
+        ## make a new dir/ for hierarchs
         if not os.path.exists(params["work"]+"prefix/"):
             os.makedirs(params["work"]+"prefix/")
 
@@ -605,7 +605,7 @@ def parseD(dtestfile):
 if __name__ == "__main__":
 
     ## parse the command line arguments
-    PARSER = OptionParser(prog="pyRAD", 
+    PARSER = OptionParser(prog="pyrad", 
                           usage="%prog [options]",
                           version="%prog "+VERSION)
 
@@ -617,13 +617,13 @@ if __name__ == "__main__":
     PARSER.add_option('-s', action="store", 
                             dest="steps",
                  help="""with -p performs step-wise parts of analysis\n
-                      1 = barcode sorting                        \
+                      1 = demultipex (barcode sorting)           \
                       2 = filter/edit raw sequences              \
                       3 = within-sample clustering               \
-                      4 = estimate pi and e                      \
-                      5 = consensus calling                      \
-                      6 = cluster consensus                      \
-                      7 = align & create output files """)
+                      4 = estimate Pi and E                      \
+                      5 = consensus base calling                 \
+                      6 = cluster consensus across-samples       \
+                      7 = align and create output files """)
 
     PARSER.add_option('-d', action="store", 
                             type="string", 

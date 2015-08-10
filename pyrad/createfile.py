@@ -1,8 +1,11 @@
 #!/usr/bin/env python2
 
+""" create params file for pyrad analyses """
+
 import sys
 
 def main(version):
+    """ print params list to file """
     output = """
 ==** parameter inputs for pyRAD version %s  **======================= affected step ==
 ./                      ## 1. Working directory                                 (all)
@@ -37,14 +40,14 @@ c88d6m4p3               ## 14. Prefix name for final output (no spaces)         
                      ## 29.opt.: trim overhang left,right on final loci, def(0,0) (s7)
                      ## 30.opt.: output formats: p,n,a,s,v,u,t,m,k,g,* (see docs) (s7)
                      ## 31.opt.: maj. base call at depth>x<mindepth (def.x=mindepth) (s5)
-                     ## 32.opt.: keep trimmed reads (def=0). Enter min length.    (s2)
+                     ## 32.opt.: keep trimmed reads, min length (def=32)          (s2)
                      ## 33.opt.: max stack size (int), def= max(500,mean+2*SD)    (s3)
                      ## 34.opt.: minDerep: exclude dereps with <= N copies, def=1 (s3)
                      ## 35.opt.: use hierarchical clustering (def.=0, 1=yes)      (s6)
                      ## 36.opt.: repeat masking (def.=1='dust' method, 0=no)      (s3,s6)
                      ## 37.opt.: vsearch max threads per job (def.=6; see docs)   (s3,s6)
 ==== optional: list group/clade assignments below this line (see docs) ================"""  % (version)
-    outfile = open("params.txt",'w')
+    outfile = open("params.txt", 'w')
     print >>sys.stderr, "\tnew params.txt file created"
     print >>outfile, "\n".join(output.split("\n")[1:])
     
