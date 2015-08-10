@@ -29,7 +29,7 @@ def afilter(cut, seq, strict):
     """ applies filter for primers & adapters """
     check1 = check2 = wheretocut = None
     ## lookfor cut site
-    if unambar(cut):
+    if unambar(cut)[1]:
         ## if ambiguity in cutter
         cuta, cutb = unambar(cut)
         if strict == 2:
@@ -144,7 +144,7 @@ def rawedit(params, infile, quiet):
                 else:
                     seq[base] = "N"
             else:
-                if unambar(cut1):
+                if unambar(cut1)[1]:
                     seq[base] = unambar(cut1)[0][base]
                 else:
                     seq[base] = cut1[base]
