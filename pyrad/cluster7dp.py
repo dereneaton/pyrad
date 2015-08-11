@@ -349,7 +349,6 @@ def alignfast(names, seqs, muscle):
     return fout.read()
 
 
-## DEPRECATED AS OF V.3.1
 def alignwrappair(params, handle):
     """ same as alignwrap but for pairddrads,
         feeds in first and second reads separately """
@@ -376,14 +375,14 @@ def alignwrappair(params, handle):
         #nameiter = 0
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip()) ##.replace("nnnn", ""))
+            seqs.append(itera[1].strip())#.replace("nnnn", "XX"))
             itera = duo.next()
             #nameiter += 1
 
         ## if longer than 1 it needs aligning "
         if len(names) > 1:
-            firsts = [i.split("n")[0] for i in seqs]
-            seconds = [i.split("n")[-1] for i in seqs]
+            firsts = [i.split("nnnn")[0] for i in seqs]
+            seconds = [i.split("nnnn")[-1] for i in seqs]
 
             ## align first reads "
             stringnames = alignfast(names[0:200], 
@@ -461,7 +460,7 @@ def alignwrap(params, handle):
         seqs = []
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip().replace("nnnn", "xx"))
+            seqs.append(itera[1].strip())#.replace("nnnn", "XX"))
             itera = duo.next()
         if len(names) > 1:
             ## keep only the 200 most common dereps, 
