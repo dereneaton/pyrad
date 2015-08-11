@@ -225,12 +225,12 @@ def fullcluster(params, outfolder, handle):
         comm = " -cluster_smallmem "+handle.replace(".edit", ".firsts")
     else:
         comm = " -cluster_smallmem "+handle.replace(".edit", ".derep")
-    if params["datatype"] in ['gbs', 'merged']:
+    if params["datatype"] in ['gbs']:
         reverse = " -strand both "
         cov = " -query_cov .35 " 
-    elif params["datatype"] == 'pairgbs':
+    elif params["datatype"] in ['pairgbs', 'merged']:
         reverse = " -strand both "
-        cov = " -query_cov .70 " 
+        cov = " -query_cov .60 " 
     else:     ## rad, ddrad, ddradmerge
         reverse = " -leftjust "
         cov = " -query_cov .90"
@@ -303,7 +303,7 @@ def stats(params, outfolder, handle, quiet):
            me, std, len(keep), 
            mek, stdk]
 
-    bins = range(1,20)+[25, 30, 35, 40, 50, 100, 250, 500, 99999]
+    bins = range(1,21)+[30, 40, 50, 100, 200, 500, 99999]
     ohist, edges = numpy.histogram(depth, bins)
     hist = [float(i)/sum(ohist) for i in ohist]
     hist = [int(round(i*30)) for i in hist]
@@ -461,7 +461,7 @@ def alignwrap(params, handle):
         seqs = []
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip().replace("NNNN", "xx"))
+            seqs.append(itera[1].strip().replace("nnnn", "xx"))
             itera = duo.next()
         if len(names) > 1:
             ## keep only the 200 most common dereps, 
