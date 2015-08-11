@@ -384,7 +384,7 @@ def alignwrappair(params, handle):
             firsts = [i.split("nnnn")[0] for i in seqs]
             seconds = [i.split("nnnn")[-1] for i in seqs]
 
-            print firsts[0][:10], 'n', seconds[0][:10]
+            #print firsts[0][:10], 'n', seconds[0][:10]
 
             ## align first reads "
             stringnames = alignfast(names[0:200], 
@@ -588,7 +588,7 @@ def final(params, outfolder, handle, fileno, remake, quiet):
     chunk3 = len(unaligned)//5
     chunk4 = (len(unaligned)-(chunk1+chunk2+chunk3))
 
-    print len(unaligned), chunk0, chunk1, chunk2, chunk3, chunk4
+    #print len(unaligned), chunk0, chunk1, chunk2, chunk3, chunk4
 
     #chunklen = (len(unaligned) + maxthreads - 1) // maxthreads
     chunks = [unaligned[0:chunk0],
@@ -610,7 +610,6 @@ def final(params, outfolder, handle, fileno, remake, quiet):
         temp_queue.put([params, outfolder+"/"+handle.split("/")[-1].\
                          replace(".edit", ".clust.i"+str(j)+".gz")])
         if 'pair' in params["datatype"]:
-            print 'DOING ALIGNWRAPPAIR'
             worker = Worker(temp_queue, fake_queue, alignwrappair)
         else:
             worker = Worker(temp_queue, fake_queue, alignwrap)            
