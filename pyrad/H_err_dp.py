@@ -179,12 +179,14 @@ def consensus(params, handle, cut1, cut2):
             for seq in range(len(thisstack)):
                 thisstack[seq] = thisstack[seq][len(cut1):]
 
-        if len(thisstack) >= min(5, params["mindepth"]):
-            arrayed = np.array(thisstack)
-            ## make list for each site in sequences
-            res = [Counter(seq) for seq in arrayed.T]
-            ## exclude sites with indels
-            stacked += [i for i in res if "-" not in i]
+        ## enforce minimum depth 10 for estimates
+        if len(thisstack) >= min(10, params["mindepth"]):
+            if len(thisstack) <= 200:
+                arrayed = np.array(thisstack)
+                ## make list for each site in sequences
+                res = [Counter(seq) for seq in arrayed.T]
+                ## exclude sites with indels
+                stacked += [i for i in res if "-" not in i]
     return stacked
 
 
@@ -281,7 +283,7 @@ def main(params, quiet):
 
     # iterate over files
     clustsfiles = glob.glob(params["work"]+"clust"+params["wclust"]+\
-                          "/"+params["subset"]+"*.clustS*")
+                            "/"+params["subset"]+"*.clustS*")
     submitted = 0
     funcfiles = []
     if len(clustsfiles) > 1:
