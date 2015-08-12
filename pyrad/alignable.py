@@ -493,6 +493,7 @@ def writetoexclude(params, snpsite, zz, longname,
             space = ((longname+5)-len(name))
             print >>nout, name+" "*space+first[fm1:sm1].upper()+\
                           'nnnn'+second[fm2:sm2].upper()
+        print snpsite
         print >>nout, '//'+thisfilter+' '*(longname+3-len(thisfilter))+\
                            snpsite+"|"#+notes
 
