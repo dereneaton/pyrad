@@ -488,18 +488,13 @@ def writetoexclude(params, snpsite, zz, longname,
     """ write to exclude file with letter to designate filter """
 
     if 'pair' in params["datatype"]:
-        try: 
-            snp1, snp2 = "".join(snpsite).split("nnnn")
-        except ValueError:
-            print snpsite
-
         for name, seq in zz:
             first, second = seq.split("nnnn")
             space = ((longname+5)-len(name))
             print >>nout, name+" "*space+first[fm1:sm1].upper()+\
                           'nnnn'+second[fm2:sm2].upper()
         print >>nout, '//'+thisfilter+' '*(longname+3-len(thisfilter))+\
-                           snp1[fm1:sm1]+"    "+snp2[fm2:sm2]+"|"#+notes
+                           snpsite+"|"#+notes
 
     else:
         for name, seq in zz:
