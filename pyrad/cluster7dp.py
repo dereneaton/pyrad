@@ -375,14 +375,14 @@ def alignwrappair(params, handle):
         #nameiter = 0
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip())#.replace("nnnn", "XX"))
+            seqs.append(itera[1].strip())    #.replace("nnnn", "XX"))
             itera = duo.next()
             #nameiter += 1
 
         ## if longer than 1 it needs aligning "
         if len(names) > 1:
-            firsts = [i.split("nnnn")[0] for i in seqs]
-            seconds = [i.split("nnnn")[-1] for i in seqs]
+            firsts = [i.split("nn")[0] for i in seqs]
+            seconds = [i.split("nn")[-1] for i in seqs]
 
             #print firsts[0][:10], 'n', seconds[0][:10]
 
@@ -415,7 +415,7 @@ def alignwrappair(params, handle):
             keys.sort(key=lambda x: int(x.split(";")[1].\
                           replace("size=", "")), reverse=True)
             for key in keys:
-                stack.append(key+'\n'+somedic1[key]+"nnnn"+somedic2[key])
+                stack.append(key+'\n'+somedic1[key]+"nn"+somedic2[key])
 
         else:
             if names:
@@ -462,7 +462,7 @@ def alignwrap(params, handle):
         seqs = []
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip())#.replace("nnnn", "XX"))
+            seqs.append(itera[1].strip())  #.replace("nnnn", "XX"))
             itera = duo.next()
         if len(names) > 1:
             ## keep only the 200 most common dereps, 
