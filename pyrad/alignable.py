@@ -495,7 +495,7 @@ def writetoexclude(params, snpsite, zz, longname,
                           'nnnn'+second[fm2:sm2].upper()
         print snpsite
         print >>nout, '//'+thisfilter+' '*(longname+3-len(thisfilter))+\
-                           snpsite+"|"#+notes
+                           "".join(snpsite)+"|"#+notes
 
     else:
         for name, seq in zz:
