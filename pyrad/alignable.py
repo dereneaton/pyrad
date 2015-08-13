@@ -389,7 +389,7 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                     for i in range(len(names)):
                         read2dic[names[i]] = seqs2[i]
                     names = keys 
-                    seqs = [read1dic[key]+"nnnn"+read2dic[key] for key in keys]
+                    seqs = [read1dic[key]+"nn"+read2dic[key] for key in keys]
 
                 else:
                     ## align reads
