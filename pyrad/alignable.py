@@ -492,7 +492,10 @@ def writetoexclude(params, snpsite, zz, longname,
 
     if 'pair' in params["datatype"]:
         for name, seq in zz:
-            first, second = seq.split("nn")
+            try: 
+                first, second = seq.split("nn")
+            except ValueError:
+                print seq
             space = ((longname+5)-len(name))
             print >>nout, name+" "*space+first[fm1:sm1].upper()+\
                           'nn'+second[fm2:sm2].upper()
