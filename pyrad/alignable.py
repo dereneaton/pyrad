@@ -317,12 +317,12 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
     nout = open(params["work"]+".not_"+pronum, 'w')
 
     ## read in clust file 2 lines at a time
-    clusts = open(infile)   ## f
+    clusts = open(infile)   
     duo = izip(*[iter(clusts)]*2)
 
     while 1:
         try: 
-            itera = duo.next()  ## d
+            itera = duo.next() 
         except StopIteration:
             break
         ## local lists
@@ -347,8 +347,7 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                 #if "merge" not in params["datatype"]:
                 #    seqs.append(itera[1].strip()[len(cut1):])
                 elif "pair" in params["datatype"]:
-                    seqs.append(itera[1].strip()[len(cut1):len(cut2)])
-                    #print "TODO REMOVE CUT2"
+                    seqs.append(itera[1].strip()[len(cut1):-len(cut2)])
                 else:
                     print "TODO FIX HERE"
             itera = duo.next()
