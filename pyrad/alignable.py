@@ -447,13 +447,13 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
             else:
                 #filterlist.append("L") ## g4 += 1
                 zz = zip(cnames, seqs)                
-                writetoexclude(params, "---unaligned---", zz,
+                writetoexclude(params, "---not aligned---", zz,
                                longname, None, None, None, None,
                                "L", nout)
         else:
             #filterlist.append("D") 
             zz = zip(cnames, seqs)
-            writetoexclude(params, "---unaligned---", zz,
+            writetoexclude(params, "---not aligned---", zz,
                            longname, None, None, None, None,
                            "D", nout)
     nout.close()
@@ -490,15 +490,18 @@ def writetoexclude(params, snpsite, zz, longname,
     """ write to exclude file with letter to designate filter """
 
     if 'pair' in params["datatype"]:
+        if "nn" in snpsite:
+            snp1, snp2 = "".join(snpsite).split("nn")        
         for name, seq in zz:
-            try: 
-                first, second = seq.split("nn")
-            except ValueError:
-                print seq
+            first, second = seq.split("nn")
             space = ((longname+5)-len(name))
             print >>nout, name+" "*space+first[fm1:sm1].upper()+\
                           'nn'+second[fm2:sm2].upper()
-        print >>nout, '//'+thisfilter+' '*(longname+3-len(thisfilter))+\
+        if "nn" in snpsite:
+            print >>nout, '//'+thisfilter+' '*(longname+3-len(thisfilter))+\
+                           snp1[fm1:sm1]+"  "+snp2[fm2:sm2]+"|"
+        else:
+            print >>nout, '//'+thisfilter+' '*(longname+3-len(thisfilter))+\
                            "".join(snpsite)+"|"#+notes
 
     else:
