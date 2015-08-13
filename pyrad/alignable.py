@@ -236,7 +236,7 @@ def trimmer(params, names, tseqs):
 
             ## put pair back together
             ## TODO check this...
-            tseqs = [i+"nnnn"+j for i, j in zip(firsts, seconds)]
+            tseqs = [i+"nn"+j for i, j in zip(firsts, seconds)]
                         
         else:
             leftlimit = [edger(i, 'min') for i in tseqs]
@@ -342,9 +342,12 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                                        [:-2])+"_"+str(nameiter))
                 onames.append(itera[0].strip().split("_")[-1])
                 ## exclude cut site length from beginning
+                if param['datatype'] == 'merged':
+                    seqs.append(itera[1].strip()[len(cut1):-len(cut1)])                    
                 if "merge" not in params["datatype"]:
                     seqs.append(itera[1].strip()[len(cut1):])
                 elif "pair" in params["datatype"]:
+                    seqs.append(itera[1].strip()[len(cut1):len(cut2)])
                     print "TODO REMOVE CUT2"
                 else:
                     print "TODO FIX HERE"
@@ -365,8 +368,8 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                 if 'pair' in params["datatype"]:
                     ## compatibility from pyrad 2 -> 3
                     seqs = [i.replace("X", 'n') for i in seqs]
-                    firsts = [[i.split("nnnn")[0]] for i in seqs]
-                    seconds = [[i.split("nnnn")[-1]] for i in seqs]
+                    firsts = [[i.split("nn")[0]] for i in seqs]
+                    seconds = [[i.split("nn")[-1]] for i in seqs]
 
                     ## align first reads
                     stringnames = alignfast(params, pronum, names, firsts)
@@ -466,12 +469,12 @@ def writetokeep(params, snpsite, zz, longname,
         formatted later """
 
     if 'pair' in params["datatype"]:
-        snp1, snp2 = "".join(snpsite).split("nnnn")
+        snp1, snp2 = "".join(snpsite).split("nn")
         for name, seq in zz:
-            first, second = seq.split("nnnn")
+            first, second = seq.split("nn")
             space = ((longname+5)-len(name))
             print >>aout, name+" "*space+first[fm1:sm1].upper()+\
-                              'nnnn'+second[fm2:sm2].upper()
+                              'nn'+second[fm2:sm2].upper()
         print >>aout, '//'+' '*(longname+3)+snp1[fm1:sm1]+\
                       "    "+snp2[fm2:sm2]+"|"+olocus
     else:
@@ -489,11 +492,10 @@ def writetoexclude(params, snpsite, zz, longname,
 
     if 'pair' in params["datatype"]:
         for name, seq in zz:
-            first, second = seq.split("nnnn")
+            first, second = seq.split("nn")
             space = ((longname+5)-len(name))
             print >>nout, name+" "*space+first[fm1:sm1].upper()+\
-                          'nnnn'+second[fm2:sm2].upper()
-        print snpsite
+                          'nn'+second[fm2:sm2].upper()
         print >>nout, '//'+thisfilter+' '*(longname+3-len(thisfilter))+\
                            "".join(snpsite)+"|"#+notes
 
@@ -513,7 +515,7 @@ def sandi_filter(params, zz, snpsite, fm1, sm1, sm2):
     ## apply SNP filter
     if 'pair' in params["datatype"]:
         ## if paired, apply separate filter to first and second reads
-        snp1, snp2 = "".join(snpsite).split("nnnn")
+        snp1, snp2 = "".join(snpsite).split("nn")
         snp1 = snp1.replace("*", "-")
         if snp1.count("-") > int(params["s1"]):
             ffilter = "S"
