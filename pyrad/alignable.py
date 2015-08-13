@@ -342,13 +342,13 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                                        [:-2])+"_"+str(nameiter))
                 onames.append(itera[0].strip().split("_")[-1])
                 ## exclude cut site length from beginning
-                if param['datatype'] == 'merged':
+                if params['datatype'] == 'merged':
                     seqs.append(itera[1].strip()[len(cut1):-len(cut1)])                    
-                if "merge" not in params["datatype"]:
-                    seqs.append(itera[1].strip()[len(cut1):])
+                #if "merge" not in params["datatype"]:
+                #    seqs.append(itera[1].strip()[len(cut1):])
                 elif "pair" in params["datatype"]:
                     seqs.append(itera[1].strip()[len(cut1):len(cut2)])
-                    print "TODO REMOVE CUT2"
+                    #print "TODO REMOVE CUT2"
                 else:
                     print "TODO FIX HERE"
             itera = duo.next()
