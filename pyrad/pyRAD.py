@@ -20,7 +20,7 @@ from optparse import OptionParser
 try:
     from collections import OrderedDict
 except ImportError:
-    sys.exit("\n\tTo run pyrad please upgrade to Python 2.7")
+    sys.exit("\n\tTo run pyrad please use Python 2.7")
 #-------------
 import sortandcheck2
 import editraw_rads
@@ -602,7 +602,8 @@ def parseD(dtestfile):
 ############################################################
 
 
-if __name__ == "__main__":
+#if __name__ == "__main__":
+def main():
 
     ## parse the command line arguments
     PARSER = OptionParser(prog="pyrad", 
@@ -737,7 +738,8 @@ if __name__ == "__main__":
 
 ##############################################
 
-
+if __name__ == "__main__":
+    main()
 
 
 
