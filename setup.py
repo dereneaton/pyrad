@@ -1,13 +1,13 @@
-import setuptools
+from setuptools import setup, find_packages
 
 requirements = [
-    'numpy',
-    'scipy'
+    'numpy>1.07',
+    'scipy>0.10'
     ]
 
-setuptools.setup(
+setup(
     name="pyrad",
-    version="3.1.0a3",
+    version="3.1.0a4",
     url="https://github.com/dereneaton/pyrad",
 
     author="Deren Eaton",
@@ -16,10 +16,9 @@ setuptools.setup(
     description="Assembly and analysis of RADseq data sets",
     long_description=open('README.rst').read(),
 
-    packages=setuptools.find_packages(),
-
+    packages=find_packages(),
+    
     install_requires=[requirements],
-
 
     entry_points={
             'console_scripts': [

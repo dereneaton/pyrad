@@ -9,7 +9,7 @@
 
 AUTHOR = "Deren Eaton"
 CONTACT = "deren.eaton@yale.edu"
-VERSION = "3.1.0a"
+VERSION = "3.1.0a4"
 
 import os
 import sys
