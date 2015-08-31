@@ -261,6 +261,11 @@ def trimmer(params, names, tseqs):
                 sm1 = min(rightlimit)+1
             else:
                 sm1 = max(rightlimit)+1
+            #if not sm1 > fm1:
+            #    sm1 = fm1+10
+            #if not sm2 > fm1:
+            #    sm2 = fm1+10
+            
     return [fm1, fm2, sm1, sm2]
 
 
@@ -349,7 +354,7 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                 elif "pair" in params["datatype"]:
                     seqs.append(itera[1].strip()[len(cut1):-len(cut2)])
                 else:
-                    print "TODO FIX HERE"
+                    seqs.append(itera[1].strip()[len(cut1):])
             itera = duo.next()
             nameiter += 1
         ## get old locus id
@@ -421,7 +426,6 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                     ## get trimmed edges
                     fm1, fm2, sm1, sm2 = trimmer(params, names, tseqs)
                     
-                    
                     ## alphabetize names
                     zz.sort()
 
@@ -429,6 +433,8 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                     ffilter = ""
                     ffilter = sandi_filter(params, zz, snpsite, fm1, sm1, sm2)
 
+                    ## if fm1, sm2, ... make sure all isn't cut when (2,2,2,2)..
+                    
                     if not ffilter:
                         ## write aligned loci to temp files for later 
                         ## concatenation into the .loci file
@@ -466,7 +472,7 @@ def writetokeep(params, snpsite, zz, longname,
                 fm1, fm2, sm1, sm2, aout, olocus):
     """ writes aligned locus to output file to be further
         formatted later """
-
+    #print fm1, fm2, sm1, sm2
     if 'pair' in params["datatype"]:
         snp1, snp2 = "".join(snpsite).split("nn")
         for name, seq in zz:
