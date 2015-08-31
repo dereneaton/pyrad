@@ -10,12 +10,14 @@ def make(params, names, longname, formats):
     names = list(names)
     names.sort()
     
-    ## read in the loci file "
-    finalfile = open(params["work"]+"outfiles/"+\
-                     params["outname"]+".loci").read() 
+    ## read in the loci file " ## use iterwhile to select loci...
+    #finalfile = open(params["work"]+"outfiles/"+\
+    #                 params["outname"]+".loci").read() 
+    locifile = open(params["work"]+"outfiles/"+\
+                    params["outname"]+".loci") 
 
-    ## dict for saving the full matrix
-    fdict = {name:[] for name in names}
+    ## dict for saving the full matrix (too much memory!)
+    #fdict = {name:[] for name in names}
 
     ## uncomment and use this if you want to save block 
     ## information for partitioning loci
@@ -23,7 +25,26 @@ def make(params, names, longname, formats):
 
     ## remove empty column sites from matrix
     ## and append edited seqs fdict
-    for loc in finalfile.split("|\n")[:-1]:
+    locus = iter(open(locifile))
+    while 1:
+        anames = []
+        array = []
+        
+        ## get next locus
+        while 1:
+            try:
+                samp = locus.next()
+            except StopIteration:
+                break
+            name, seq = samp.split()
+            anames.append(name)
+            seqs.append(seq)
+
+        arrayed = np.array([tuple(i.split()[-1]) for i in \
+                               loc.strip().split("\n") if ">" in i])
+            
+            
+    for loc in finalfile.split("|\n")[:-1]:    ## use iterwhile to save mem
         anames = [i.split()[0][1:] for i in \
                   loc.strip().split("\n") if ">" in i]
 
@@ -38,6 +59,8 @@ def make(params, names, longname, formats):
         ## uncomment to print block info (used to partition by locus)
         #blockend += minray
         #print blockend,
+        #print loc
+        #print arrayed
 
         ## append data to dict
         for name in names:
