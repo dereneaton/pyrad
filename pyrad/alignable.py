@@ -838,8 +838,7 @@ def main(params, infile, taxadict, minhits, version, quiet):
         os.makedirs(params["work"]+'stats')
 
     ## read names from file
-        
-    temp = gzip.open(infile, 'r').readlines()
+    temp = iter(gzip.open(infile, 'rb'))
     names = set(["_".join(i.split(">")[1].split("_")[:-2]) \
                 for i in temp if ">" in i])
 
