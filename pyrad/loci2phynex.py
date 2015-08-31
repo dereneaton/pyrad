@@ -67,7 +67,6 @@ def make(params, names, longname, formats):
 
         ## append data to dict
         for name in names:
-            print name, anames
             if name in anames:
                 fdict[name].append(arrayed[anames.index(name), mask].tostring())
             else:
@@ -77,7 +76,6 @@ def make(params, names, longname, formats):
     ## print out .PHY file by default
     superout = open(params["work"]+"outfiles/"+\
                     params["outname"]+".phy", 'wb')
-    print fdict[names[0]]
     print >>superout, len(fdict), len("".join(fdict[names[0]]))
     for name in names:
         print >>superout, name+(" "*((longname+3)-\

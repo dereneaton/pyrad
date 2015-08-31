@@ -839,8 +839,10 @@ def main(params, infile, taxadict, minhits, version, quiet):
 
     ## read names from file
     temp = iter(gzip.open(infile, 'rb'))
-    names = set(["_".join(i.split(">")[1].split("_")[:-2]) \
-                for i in temp if ">" in i])
+    #names = set(["_".join(i.split(">")[1].split("_")[:-2]) \
+    #            for i in temp if ">" in i])
+    names = set(["_".join(i.split("_")[:-2])[1:] for \
+                 i in temp if ">" in i])
 
     ## find subset names "
     params["subset"] = set([i for i in names if params["subset"] in i])
