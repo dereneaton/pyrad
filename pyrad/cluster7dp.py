@@ -375,7 +375,7 @@ def alignwrappair(params, handle):
         #nameiter = 0
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip())    #.replace("nnnn", "XX"))
+            seqs.append(itera[1].strip())   
             itera = duo.next()
             #nameiter += 1
 
@@ -462,7 +462,7 @@ def alignwrap(params, handle):
         seqs = []
         while itera[0] != "//\n":
             names.append(itera[0].strip())
-            seqs.append(itera[1].strip())  #.replace("nnnn", "XX"))
+            seqs.append(itera[1].strip())  
             itera = duo.next()
         if len(names) > 1:
             ## keep only the 200 most common dereps, 
@@ -513,66 +513,17 @@ def alignwrap(params, handle):
     outfile.close()
 
 
-def orderseqs(names, seqs):
-    """ reorders cluster by derep number because muscle output does
-        not retain the order """
-    try: 
-        dereps = [int(i.split(";")[1].replace("size=", "")) for i in names]
-    except IndexError:
-        print names
-    ordered = sorted(range(len(dereps)), key=lambda a: dereps[a], reverse=True)
-    nnames = [names[i] for i in ordered]
-    sseqs = [seqs[i] for i in ordered]
-    return nnames, sseqs
-
-
-## DEPRECATED ALONG WITH ALIGNWRAPPAIR
-# def splitter(handle):
-#     """splits paired reads and writes firsts to a file """
-#     ## read in the derep file
-#     lines = iter(open(handle.replace(".edit", ".derep")).\
-#                              read().strip().split(">")[1:])
-#     firsts = []
-#     cnts = 0
-#     for line in lines:
-#         obj = line.split('\n')
-#         name = obj[0]
-#         seq = "".join(obj[1:])
-#         ## legacy fix for pyrad2 -> pyrad 3
-#         seq = seq.replace("XXXX", "nnnn")
-#         ## split on nn separator
-#         seq = seq.split("nn")[0]
-#         firsts.append(">"+name+"\n"+seq)
-#         cnts += 1
-#         if not cnts % 100000:
-#             orderfirsts = open(handle.replace(".edit", ".firsts"), 'a')
-#             orderfirsts.write("\n".join(firsts))
-#             orderfirsts.close()
-#             firsts = []
-#     orderfirsts = open(handle.replace(".edit", ".firsts"), 'a')
-#     orderfirsts.write("\n".join(firsts))
-#     orderfirsts.close()
-    
-
 def final(params, outfolder, handle, fileno, remake, quiet):
     """ run the full script """
 
-    if remake:
-        pass
-    else:
-        ## de-replicate the reads if not done by big file method"
-        if handle.replace(".edit", ".derep") not in \
-                          glob.glob(params["work"]+"edits/*"):
-            derep(params, handle)
-            sortbysize(params, handle)
+    ## de-replicate the reads if not done by big file method"
+    if handle.replace(".edit", ".derep") not in \
+                      glob.glob(params["work"]+"edits/*"):
+        derep(params, handle)
+        sortbysize(params, handle)
 
-        #if params["datatype"] == 'pairddrad':
-        #    if handle.replace(".edit", ".firsts") not in \
-        #                      glob.glob(params["work"]+"edits/*"):
-        #        splitter(handle)
-
-        ## cluster the reads "
-        fullcluster(params, outfolder, handle)
+    ## cluster the reads "
+    fullcluster(params, outfolder, handle)
 
     ## build cluster files from .u & .temp files
     makederepclust(params, outfolder, handle)
