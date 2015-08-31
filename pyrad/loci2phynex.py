@@ -14,10 +14,10 @@ def make(params, names, longname, formats):
     #finalfile = open(params["work"]+"outfiles/"+\
     #                 params["outname"]+".loci").read() 
     locifile = open(params["work"]+"outfiles/"+\
-                    params["outname"]+".loci") 
+                    params["outname"]+".loci", 'rb') 
 
     ## dict for saving the full matrix (too much memory!)
-    #fdict = {name:[] for name in names}
+    fdict = {name:[] for name in names}
 
     ## uncomment and use this if you want to save block 
     ## information for partitioning loci
@@ -25,36 +25,39 @@ def make(params, names, longname, formats):
 
     ## remove empty column sites from matrix
     ## and append edited seqs fdict
-    locus = iter(open(locifile))
-    while 1:
+    locus = iter(locifile)
+    tnames = []
+    seqs = []
+    done = 0
+    while not done:
+        arrayed = np.array([])
         anames = []
-        array = []
-        
-        ## get next locus
         while 1:
+            ## get next locus
             try:
                 samp = locus.next()
             except StopIteration:
+                done = 1
                 break
-            name, seq = samp.split()
-            anames.append(name)
-            seqs.append(seq)
-
-        arrayed = np.array([tuple(i.split()[-1]) for i in \
-                               loc.strip().split("\n") if ">" in i])
-            
-            
-    for loc in finalfile.split("|\n")[:-1]:    ## use iterwhile to save mem
-        anames = [i.split()[0][1:] for i in \
-                  loc.strip().split("\n") if ">" in i]
-
-        arrayed = np.array([tuple(i.split()[-1]) for i in \
-                               loc.strip().split("\n") if ">" in i])
-
+            if "//" in samp:
+                #print arrayed
+                break
+            else:
+                name, seq = samp.split()
+                anames.append(name[1:])
+                seqs.append(seq.strip())
+        ## reset
+        arrayed = np.array([list(i) for i in seqs])
+        seqs = []
+        if done:
+            break
         ## create mask for columns that are empty or 
         ## that are paired-end separators (compatible w/ pyrad v2 and v3)
         mask = [i for i in range(len(arrayed.T)) if not \
-                  np.all([j in list("N-nxX") for j in arrayed.T[i]])]
+                np.all([j in list("N-nxX") for j in arrayed.T[i]])]
+        #masked = arrayed.T[(arrayed.T != "-") & \
+        #                   (arrayed.T != "N") & \
+        #                   (arrayed.Tq != "X")]
 
         ## uncomment to print block info (used to partition by locus)
         #blockend += minray
@@ -64,15 +67,17 @@ def make(params, names, longname, formats):
 
         ## append data to dict
         for name in names:
+            print name, anames
             if name in anames:
-                fdict[name] += "".join(arrayed[anames.index(name), mask])
+                fdict[name].append(arrayed[anames.index(name), mask].tostring())
             else:
-                fdict[name] += "".join(["N"]*len(arrayed[0, mask]))
+                fdict[name].append("N"*len(arrayed[0, mask]))
 
     #############################
     ## print out .PHY file by default
     superout = open(params["work"]+"outfiles/"+\
-                    params["outname"]+".phy", 'w')
+                    params["outname"]+".phy", 'wb')
+    print fdict[names[0]]
     print >>superout, len(fdict), len("".join(fdict[names[0]]))
     for name in names:
         print >>superout, name+(" "*((longname+3)-\
