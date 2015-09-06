@@ -27,7 +27,7 @@ import loci2treemix
 import loci2SNP
 import loci2mig
 import loci2gphocs
-import loci2cat
+#import loci2cat
 
 
 def unstruct(amb):
@@ -975,11 +975,11 @@ def main(params, infile, taxadict, minhits, version, quiet):
         loci2vcf.make(params, version, names)
     
     ## make cat output 
-    if 'c' in formats:
-        if not quiet:
-            sys.stderr.write("\twriting cat file\n")
-        ## check for dependencies...
-        loci2cat.make(params, names, quiet)
+    # if 'c' in formats:
+    #     if not quiet:
+    #         sys.stderr.write("\twriting cat file\n")
+    #     ## check for dependencies...
+    #     loci2cat.make(params, names, quiet)
 
     ## another check to remove old temp files
     for i in glob.glob(params["work"]+".chunk_*"):

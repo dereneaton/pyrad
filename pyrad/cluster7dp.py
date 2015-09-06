@@ -134,7 +134,7 @@ def derep(params, handle):
     if 'vsearch' in params["vsearch"]:
         threads = " "
     else:
-        threads = " -threads 1"
+        threads = " -threads 4"
     if params["datatype"] in ['pairgbs', 'gbs', 'merged']:
         reverse = " -strand both "
     else:
@@ -144,7 +144,7 @@ def derep(params, handle):
     else:
         mins = " "
     cmd = params["vsearch"]+\
-        " -derep_fulllength "+handle+\
+        " --derep_fulllength "+handle+\
         reverse+\
         mins+\
         " -output "+handle.replace(".edit", ".step")+\
@@ -160,7 +160,7 @@ def sortbysize(params, handle):
     replicated are at the top, and singletons at bottom, writes
     output to .derep file """
     cmd = params["vsearch"]+\
-          " -sortbysize "+handle.replace(".edit", ".step")+\
+          " --sortbysize "+handle.replace(".edit", ".step")+\
           " -output "+handle.replace(".edit", ".derep")
     subprocess.call(cmd, shell=True, 
                          stderr=subprocess.STDOUT,

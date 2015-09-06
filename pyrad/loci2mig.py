@@ -3,10 +3,7 @@
 """ script to convert .loci formatted files to .migrate format """
 
 import sys    
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
+from collections import OrderedDict
 
 
 def make(params, taxadict, minhits, maxnumberloci):
@@ -37,9 +34,9 @@ def make(params, taxadict, minhits, maxnumberloci):
     minzip = zip(taxa.keys(), minhits)
 
     ## read in data to sample names
-    loci = open(params["work"]+"/outfiles/"+\
-                params["outname"]+".loci", 'r').\
-                read().strip().split("|")[:-1]
+    locilines = iter(open(params["work"]+"/outfiles/"+\
+                          params["outname"]+".loci", 'rb'))
+                     #.\read().strip().split("|")[:-1]
 
     ## filter loci for mincoverage
     for loc in loci:

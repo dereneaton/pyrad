@@ -12,13 +12,9 @@ import numpy
 import os
 import operator
 import gzip
-import cPickle as pickle
-from potpour import Worker, Consobj
-try:
-    from collections import OrderedDict, Counter
-except ImportError:
-    from ordereddict import OrderedDict, Counter
-
+#import cPickle as pickle
+from pyrad.potpour import Worker, Consobj
+from collections import Counter
 
 
 def binomprobr(base1, base2, error, het):
@@ -410,9 +406,9 @@ def consensus(params, handle, upper_sd, quiet):
         poly = 0.
 
     ## dump the quality score and depth info into a pickle
-    pickleout = gzip.open(handle.replace("clustS.gz", "bindata"), 'wb')
-    pickle.dump(datadict, pickleout)
-    pickleout.close()
+    #pickleout = gzip.open(handle.replace("clustS.gz", "bindata"), 'wb')
+    #pickle.dump(datadict, pickleout)
+    #pickleout.close()
 
     return [handle.split("/")[-1], locus, minsamp_filtered, 
                                    ldic, nsites, nheteros, 

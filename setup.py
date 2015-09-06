@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 from setuptools import setup, find_packages
 
 requirements = [
@@ -7,7 +9,7 @@ requirements = [
 
 setup(
     name="pyrad",
-    version="3.1.0a4",
+    version="3.1.0a5",
     url="https://github.com/dereneaton/pyrad",
 
     author="Deren Eaton",

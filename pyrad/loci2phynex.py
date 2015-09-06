@@ -11,8 +11,6 @@ def make(params, names, longname, formats):
     names.sort()
     
     ## read in the loci file " ## use iterwhile to select loci...
-    #finalfile = open(params["work"]+"outfiles/"+\
-    #                 params["outname"]+".loci").read() 
     locifile = open(params["work"]+"outfiles/"+\
                     params["outname"]+".loci", 'rb') 
 
@@ -26,7 +24,6 @@ def make(params, names, longname, formats):
     ## remove empty column sites from matrix
     ## and append edited seqs fdict
     locus = iter(locifile)
-    tnames = []
     seqs = []
     done = 0
     while not done:
@@ -55,9 +52,6 @@ def make(params, names, longname, formats):
         ## that are paired-end separators (compatible w/ pyrad v2 and v3)
         mask = [i for i in range(len(arrayed.T)) if not \
                 np.all([j in list("N-nxX") for j in arrayed.T[i]])]
-        #masked = arrayed.T[(arrayed.T != "-") & \
-        #                   (arrayed.T != "N") & \
-        #                   (arrayed.Tq != "X")]
 
         ## uncomment to print block info (used to partition by locus)
         #blockend += minray
@@ -85,12 +79,11 @@ def make(params, names, longname, formats):
     #############################
     ## print out interleaved .NEX file
     if 'n' in formats:
-        data = open(params["work"]+"outfiles/"+\
-                      params["outname"]+".phy").readlines() 
-        nexout = open(params["work"]+"outfiles/"+\
-                      params["outname"]+".nex", 'w')
+        data = iter(open(params["work"]+"outfiles/"+params["outname"]+".phy"))
+        ntax, nchar = data.next().strip().split(" ")
 
-        ntax, nchar = data[0].strip().split(" ")
+        nexout = open(params["work"]+"outfiles/"+\
+                      params["outname"]+".nex", 'wb')
 
         print >>nexout, "#NEXUS"
         print >>nexout, "BEGIN DATA;"
@@ -99,7 +92,7 @@ def make(params, names, longname, formats):
         print >>nexout, "  MATRIX"
 
         idict = {}
-        for line in data[1:]:
+        for line in data:
             a = line.lstrip().rstrip().split(" ")
             idict[a[0]] = a[-1]
 

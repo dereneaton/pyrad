@@ -3,78 +3,87 @@
 """ create .snp and related outputs """
 
 import numpy as np
-try:
-    from collections import Counter
-except ImportError:
-    from counter import Counter
-import alignable
+from itertools import takewhile
+from collections import Counter
+import alignable 
 
+# pylint: disable=E1101
 
-def make(params, names): 
+def make(params, names):
     """ make function """
     #WORK, outname, names, formats, seed, ploidy):
     np.random.seed(int(params["seed"]))
-    finalfile = open(params["work"]+"outfiles/"+\
-                     params["outname"]+".loci").read()
+    locifile = iter(open(params["work"]+"outfiles/"+\
+                         params["outname"]+".loci"))
     longname = max([len(i) for i in names])
 
     ## output .snps and .unlinked_snps"
-    snpdict = {name:[] for name in names}      ## snp dict  S
-    usnpdict = {name:[] for name in names}     ## unlinked snp dict Si
-    # for name in list(names):
-    #     S[name] = []
-    #     Si[name] = []
+    snpdict = {name:[] for name in names}   ## snp dict  S
+    usnpdict = {name:[] for name in names}  ## unlinked snp dict Si
 
     ## record bi-allelic snps"
     bis = 0
 
     ## for each locus select out the SNPs"
-    for loc in finalfile.strip().split("|\n"):    #[:-1]:
-        pis = ""
-        names = []  ## ns
-        seqs = []   ## ss
-        cov = {}  ## record coverage for each SNP
-        for line in loc.split("\n"):
-            if ">" in line:
-                names.append(line.split()[0].replace(">", ""))
-                seqs.append(line.split()[-1])
+    snplist = []
+    usnps = []
+    locus = iter(locifile)
+    seqs = []
+    done = start = 0
+    while not done:
+        arrayed = np.array([])
+        anames = []
+        while 1:
+            ## get next locus
+            try:
+                samp = locus.next()
+            except StopIteration:
+                done = 1
+                break
+            if "//" in samp:
+                seq = samp[start:]
+                anames.append("SNPS")
+                seqs.append(seq.split("|")[0])
+                break
             else:
-                pis = [i[0] for i in enumerate(line) if i[1] in list('*-')]
+                name, seq = samp.split()
+                anames.append(name[1:])
+                seqs.append(seq.strip())
+                start = samp.rindex(" ")+1                
 
-        
+        ## do this locus
+        arrayed = np.array([list(i) for i in seqs])
+        mask = [i for i, j in enumerate(arrayed[-1]) if j.strip()]
+        snpsarray = arrayed[:,mask]
+        snplist.append(snpsarray[range(len(names)),:])
+
         ## assign snps to S, and record coverage for usnps"
-        for tax in snpdict:
-            if tax in names:
-                if pis:
-                    for snpsite in pis:
-                        snpsite -= (longname+5)
-                        snpdict[tax].append(seqs[names.index(tax)][snpsite])
-                        ## weighting of site for "random" selection
-                        if snpsite not in cov:
-                            cov[snpsite] = 1
-                        else:
-                            cov[snpsite] += 1
-                        ## downweight selection of gap sites "
-                        if seqs[names.index(tax)][snpsite] != '-':
-                            cov[snpsite] += 1
-            else:
-                if pis:
-                    for snpsite in pis:
-                        snpdict[tax].append("N")
+        if snpsarray:
+            for tax in snpdict:
+                if tax in anames:
+                    snpdict[tax].append(xx)
+                else:
+                    snpdict[tax].append("N"*10)
                     usnpdict[tax].append("N")
-
-        ## randomly select among snps w/ greatest coverage for unlinked snp "
-        maxlist = []
-        for j, k in cov.items():
-            if k == max(cov.values()):
-                maxlist.append(j)
+        else:
+            # invariable
+            pass
 
         ## Is bi-allelic ?
         bisnps = []
+        for col in snpsarray.T:
+            if len(set(col)) < 3:
+                
+
+
         for i in maxlist:
             if len(set([seqs[names.index(tax)][i] for tax \
                         in snpdict if tax in names])) < 3:
                 bisnps.append(i)
+
+
+        usnpslist.append(snpsarray[range(len(names)),rando])
+        ## sample a single SNP for unlinked 
 
         #rando = pis[np.random.randint(len(pis))]
         #rando -= (longname+5)

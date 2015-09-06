@@ -11,7 +11,7 @@ import subprocess
 import gzip
 import copy
 import cPickle as pickle
-from consensdp import unhetero, uplow
+from pyrad.consensdp import unhetero, uplow
 
 
 def breakalleles(consensus):
