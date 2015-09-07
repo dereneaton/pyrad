@@ -1,4 +1,6 @@
 
+.. _RAD-tutorial_3.1.0:
+
 Example *de novo* RADseq assembly using *pyRAD*
 ===============================================
 
