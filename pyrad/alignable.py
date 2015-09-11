@@ -8,11 +8,10 @@ import subprocess
 import multiprocessing
 import gzip
 
-from itertools import izip
+from itertools import izip, chain, groupby, takewhile
 from copy import copy
 from potpour import *
 from consensdp import unhetero, uplow, breakalleles
-from itertools import chain, groupby
 from cluster_cons7_shuf import comp
 
 import loci2phynex
@@ -80,12 +79,12 @@ def alignfast(WORK,pronum,names,seqs,muscle):
         fstring = WORK+".tempalign_"+pronum
         with open(fstring,'w') as inST:
             print >>inST, ST
-        cmd = muscle+" -quiet -in "+fstring #+" -out "+ostring
+        cmd = muscle+" -quiet -in "+fstring  #+" -out "+ostring
     else:
         cmd = "/bin/echo '"+ST+"' | "+muscle+" -quiet -in -"
+
     fout = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     ff = fout.stdout.read()
-    #TODO: future try fout.communicate()[0]
     return ff
 
 
@@ -231,9 +230,11 @@ def alignFUNC(infile, minspecies, ingroup,
     " read in clust file 2 lines at a time"
     k = izip(*[iter(f)]*2)
     while 1:
-        D = P = S = I = SS = notes = ""
-        try: d = k.next()
-        except StopIteration : break
+        D = P = S = I = notes = ""
+        try:
+            d = k.next()
+        except StopIteration:
+            break
         locus += 1
         names = []
         cnames = []
@@ -243,7 +244,12 @@ def alignFUNC(infile, minspecies, ingroup,
         while d[0] != "//\n":
             "record names and seqs, remove # at end"
             "record the name into locus name. "
-            nam = "_".join(d[0].split(">")[1].split("_")[:-2])
+            try:
+                nam = "_".join(d[0].split(">")[1].split("_")[:-2])
+            except IndexError:
+                print infile
+                print d
+            
             if nam not in exclude:
                 cnames.append("_".join(d[0].split(">")[1].split("_")[:-2]))
                 names.append("_".join(d[0].split(">")[1].split("_")[:-2])+"_"+str(nameiter))
@@ -351,14 +357,8 @@ def alignFUNC(infile, minspecies, ingroup,
             "alphabetize names"
             zz.sort()
 
-            if SM1 and FM1:
-                if SM1-FM1 < 10:
-                    SS = "@"
-            if SM2 and FM2:
-                if SM2-FM2 < 10:
-                    SS = "@"                
             " filter for duplicates or paralogs, then SNPs and Indels "
-            if not (D or P or SS):
+            if not (D or P):
 
                 " SNP filter "
                 if 'pair' in datatype:
@@ -397,11 +397,10 @@ def alignFUNC(infile, minspecies, ingroup,
                               'nnnn'+second[FM2:SM2].upper()
                     print >>aout, '//'+' '*(longname+3)+snp1[FM1:SM1]+"    "+snp2[FM2:SM2]+"|"+notes
                 else:
-                    if SM1-FM1 > 10:
-                        for x,y in zz:
-                            space = ((longname+5)-len(x))
-                            print >>aout, x+" "*space + y[FM1:SM1].upper()
-                        print >>aout, '//'+' '*(longname+3)+"".join(snpsite[FM1:SM1])+"|"+notes
+                    for x,y in zz:
+                        space = ((longname+5)-len(x))
+                        print >>aout, x+" "*space + y[FM1:SM1].upper()
+                    print >>aout, '//'+' '*(longname+3)+"".join(snpsite[FM1:SM1])+"|"+notes
                     
             else:
                 " write to exclude file "
@@ -444,28 +443,78 @@ def FF(x,minmax):
     return ff
 
 
+
+def blocks(files, size=2048000):
+    """ read in blocks 2Mb at a time for speed """
+    while True:
+        b = files.read(size)
+        if not b:
+            break
+        yield b
+
+
 def makealign(ingroup, minspecies, outname, infile,
               MAXpoly, parallel, s1, s2, muscle,
               exclude, overhang, WORK, CUT,
-              a1, a2, datatype, longname):
+              a1, a2, datatype, longname, nloci):
 
     " break input file into chunks for n threads "
     if glob.glob(WORK+".align") or glob.glob(WORK+".chunk"):
-        os.system("/bin/rm "+WORK+".align* "+WORK+".chunk*")
+        os.remove(WORK+".align_* "+WORK+".chunk_*")
 
     """ read infile, split into chunks for aligning, nchuncks
     depends on number of available processors """
-    f = gzip.open(infile,'rb').read().strip().split("//\n")
-    pp = max(3,parallel)
-    chunks = [0+(len(f)/pp)*i for i in range(pp)]
-    for i in range(len(chunks)-1):
-        ff = open(WORK+".chunk_"+str(i), 'w')
-        ff.write( "//\n\n".join(f[chunks[i]:chunks[i+1]])+"//\n\n")
-        ff.close()
-    ff = open(WORK+".chunk_"+str(i+1), 'w')
-    ff.write( "//\n\n".join(f[chunks[i+1]:])+"\n\n")
-    ff.close()
+    with gzip.open(infile, 'rb') as f:
+        #totlines = sum(b1.count("\n") for b1 in blocks(f))
+        totclust = sum(b1.count("//\n") for b1 in blocks(f))
 
+    f = iter(gzip.open(infile,'rb'))    
+
+    ## split into as many processors ,
+    ## or X as many processors if very large
+    pp = max(3, parallel)
+    done = 0
+    chunks = 0
+    bigs = (totclust/pp)/2
+    sumloci = 0
+
+    while not done:
+        nloci = 0
+        dat = []
+        ## continue to the end of next locus
+        gg = takewhile(lambda x: x!="//\n", f)
+        while nloci < bigs:
+            try:
+                line = next(gg)
+                if line:
+                    dat.append(line)
+
+            except StopIteration:
+                dat.append("//\n")
+                ## reset generator
+                gg = takewhile(lambda x: x!="//\n", f)
+                #line = gg.next()
+                nloci += 1
+                if sumloci+nloci > totclust:
+                    done = 'done'
+                    break
+        sumloci += nloci
+
+        if sumloci < totclust:
+            loci = "".join(dat).split("//\n") #[:-1]
+            ff = open(WORK+".chunk_"+str(chunks), 'wb')
+            ff.write("//\n\n".join(loci))     #+"//\n\n")
+            ff.close()
+            chunks += 1
+            #print nloci, sumloci, totclust
+    ## final
+    loci = "".join(dat).split("//\n") #[:-1]
+    ff = open(WORK+".chunk_"+str(chunks), 'wb')
+    ff.write("//\n\n".join(loci))     #+"//\n\n")
+    ff.close()
+    chunks += 1
+    #print nloci, sumloci, totclust
+        
     " set up parallel "
     work_queue = multiprocessing.Queue()
     result_queue = multiprocessing.Queue()
@@ -653,9 +702,23 @@ def main(outgroup, minspecies, outname,
     if not os.path.exists(WORK+'outfiles'):
         os.makedirs(WORK+'outfiles')
 
-    " read names from file "
-    f = gzip.open(infile,'r').readlines()
-    names = set(["_".join(i.split(">")[1].split("_")[:-2]) for i in f if ">" in i])
+    " read names from file and count loci"
+    f = iter(gzip.open(infile, 'rb'))
+    names = []
+    nloci = 0
+    ## upper limit for speed
+    while nloci < 10000: 
+        try:
+            line = f.next()
+        except StopIteration:
+            break
+        if ">" in line:
+            n = "_".join(line[1:].split("_")[:-2])
+            if n not in names:
+                names.append(n)
+        elif "//" in line:
+            nloci += 1
+    names = set(names)
 
     " parse maxSNP argument "
     if 'pair' in datatype:
@@ -722,7 +785,7 @@ def main(outgroup, minspecies, outname,
         locus = makealign(ingroup, minspecies, outname, infile,
                           MAXpoly, parallel, s1, s2, muscle,
                           exclude, overhang, WORK, CUT,
-                          a1, a2, datatype, longname)
+                          a1, a2, datatype, longname, nloci)
 
         " make stats output "
         DoStats(ingroup, outgroup, outname, 
@@ -740,12 +803,7 @@ def main(outgroup, minspecies, outname,
             print "\twriting nexus file"
         if 'p' in formats:
             print "\twriting phylip file"
-        ## temp fix
-        params = {}
-        params["work"] = WORK
-        params["outname"] = outname
-        loci2phynex.make(params, names, longname, formats)
-        #loci2phynex.make(WORK,outname,names,longname, formats)
+        loci2phynex.make(WORK,outname,names,longname, formats)
 
     if 'f' in formats:
         print "\tWriting gphocs file"
