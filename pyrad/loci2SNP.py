@@ -77,12 +77,13 @@ def make(WORK, outname, names, formats, seed, ploidy):
             rando = bisnps[np.random.randint(len(bisnps))]
         elif maxlist:
             rando = maxlist[np.random.randint(len(maxlist))]
+        tbi = 0
         for tax in S:
             if tax in ns:
                 if pis:
                     " if none are bi-allelic "
                     if not bisnps:
-                        bis += 1
+                        tbi += 1
                     Si[tax].append(ss[ns.index(tax)][rando])
             if pis:
                 " add spacer between loci "                
@@ -90,7 +91,7 @@ def make(WORK, outname, names, formats, seed, ploidy):
             else:
                 " invariable locus "
                 S[tax].append("_ ")
-
+        bis += tbi
     " names "
     SF = list(S.keys())
     SF.sort()

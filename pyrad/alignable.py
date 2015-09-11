@@ -2,6 +2,7 @@
 
 import numpy as np
 import os
+import shutil
 import sys
 import glob
 import subprocess
@@ -798,12 +799,19 @@ def main(outgroup, minspecies, outname,
     formats = outform.split(",")
 
     " make phy, nex, SNP, uSNP, structure"
-    if any([i in formats for i in ['n','p']]):
-        if 'n' in formats:
-            print "\twriting nexus file"
-        if 'p' in formats:
-            print "\twriting phylip file"
-        loci2phynex.make(WORK,outname,names,longname, formats)
+    try:
+        os.mkdir(os.path.join(WORK, "tmp"))
+        if any([i in formats for i in ['n','p']]):
+            if 'p' in formats:
+                print "\tfiltering & writing to phylip file"
+            if 'n' in formats:
+                print "\twriting nexus file"
+            loci2phynex.make(WORK,outname,names,longname, formats)
+    finally:
+        print 'done'
+        if os.path.exists(os.path.join(WORK, "tmp")):
+            shutil.rmtree(os.path.join(WORK, "tmp"))
+        
 
     if 'f' in formats:
         print "\tWriting gphocs file"
@@ -813,7 +821,7 @@ def main(outgroup, minspecies, outname,
         if 's' in formats:
             print "\t  + writing full SNPs file"
         if 'u' in formats:
-            print "\t  + writing unlinked SNPs file"
+            print "\t  + writing unlinked bi-allelic SNPs file"
         if 'k' in formats:
             print "\t  + writing STRUCTURE file"            
         if 'g' in formats:
