@@ -44,7 +44,7 @@ from potpour import Worker
 
 
 def main():
-    parser = OptionParser(prog="pyRAD", usage="%prog [options]", version="%prog 3.0.6")
+    parser = OptionParser(prog="pyRAD", usage="%prog [options]", version="%prog 3.0.61")
     parser.add_option('-p', action="store", type="string", dest="params",
                       help="input file for within sample filtering and clustering\n")
     parser.add_option('-s', action="store", dest="steps",

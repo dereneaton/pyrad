@@ -106,6 +106,8 @@ def IUAfreq(Loc,L):
         patlist = fillin(L[2],'p3',col,Loc.names,patlist)
         patlist = fillin(L[3],'o', col,Loc.names,patlist)
 
+        #print Loc.seq, Loc.number
+        #print patlist
         if not any([all([i in ["N",'-'] for i in patlist['p1']]),
                     all([i in ["N",'-'] for i in patlist['p2']]),
                     all([i in ["N",'-'] for i in patlist['p3']]),
@@ -161,7 +163,7 @@ def makeSNP(L,snpfreq,loci):
         Loc = Locus()
         Loc.number = num
         " only select loci that have data for all four tiptaxa "
-        names = [i.split()[0].replace(">","") for i in loc.lstrip().rstrip().split("\n")[:-1]]
+        names = [i.split()[0].replace(">","") for i in loc.lstrip().rstrip().split("\n")[1:-1]]
         if snpfreq:
             Loc.names = [i for i in names if i in list(itertools.chain(*L))]
         else:
@@ -184,18 +186,24 @@ def makeSNP(L,snpfreq,loci):
 
         if keep:
             N = numpy.array([tuple(i) for i in loc.split("\n")[1:]])
+
             " only select sites with synapomorphies "
             ## may want to keep autapomorphies in the future, or more
             ## when making a parameterized version of D-statistic
             ## only pyrad 2.1+ finds synapormorphies btwn hetero and fixed sites
             N[-1] = list(N[-1].tostring().replace("-","*"))
             N = N[:, N[-1] == "*"]
-
             " only select rows with focal taxa"
             if snpfreq:
                 Loc.seq = N[[names.index(i) for i in Loc.names],:]
             else:
                 Loc.seq = N[[names.index(i) for i in Loc.names],:]
+            #print names
+            #print N, "______________"
+            #print Loc.number
+            #print Loc.seq
+            #print Loc.names
+            #print [names.index(i) for i in Loc.names]
             Ndict[num] = Loc
         num += 1
     return Ndict
@@ -223,7 +231,6 @@ class Locus():
 
 def runtest(infile, L, nboots, snpfreq, submitted):
     " print test"
-    print L
 
     " split each locus "
     loci = open(infile).read().strip().split("|")[:-1]
@@ -392,6 +399,7 @@ def multiproc_it(tests, alignfile, outfile, nboots, nproc, namelen, makesort, ma
 
 
         loci = open(alignfile).read().strip().split("|")[:-1]
+
         if makesort:
             makesortfiles('ABBA',ABBAloci,4,loci,outfile,makesort,sub,ps)
             makesortfiles('BABA',BABAloci,4,loci,outfile,makesort,sub,ps)            

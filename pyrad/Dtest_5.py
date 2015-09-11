@@ -234,7 +234,7 @@ def makeSNP(L, snpfreq, loci):
         Loc.number = num
 
         " only select loci that have data for all five tiptaxa "
-        names = [i.split()[0].replace(">","") for i in loc.lstrip().rstrip().split("\n")[:-1]]
+        names = [i.split()[0].replace(">","") for i in loc.lstrip().rstrip().split("\n")[1:-1]]
         if snpfreq:
             Loc.names = [i for i in names if i in list(itertools.chain(*L))]
         else:
