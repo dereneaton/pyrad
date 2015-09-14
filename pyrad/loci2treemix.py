@@ -5,10 +5,7 @@
 import numpy as np
 import gzip
 import sys
-try:
-    from collections import OrderedDict, Counter
-except ImportError:
-    from ordereddict import OrderedDict, Counter
+from collections import OrderedDict, Counter
 import alignable
 
 

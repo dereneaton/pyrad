@@ -13,14 +13,10 @@ import cPickle as pickle
 from numpy import array
 from itertools import izip
 from copy import copy
-from potpour import Worker
 from cluster_cons7_shuf import breakalleles
+from collections import Counter
 
-try:
-    from collections import Counter
-except ImportError:
-    from ordereddict import Counter
-
+from potpour import Worker
 import loci2phynex
 import loci2vcf
 import loci2treemix
@@ -44,8 +40,10 @@ def unstruct(amb):
              "G":["G", "G"],
              "C":["C", "C"],
              "N":["N", "N"],
-             "-":["-", "-"]}
+             "-":["-", "-"],
+             "*":["*", "*"]}
     return trans.get(amb)
+
 
 
 def alignfast(params, pronum, names, seqs):
@@ -236,7 +234,7 @@ def trimmer(params, names, tseqs):
 
             ## put pair back together
             ## TODO check this...
-            tseqs = [i+"nn"+j for i, j in zip(firsts, seconds)]
+            #tseqs = [i+"nn"+j for i, j in zip(firsts, seconds)]
                         
         else:
             leftlimit = [edger(i, 'min') for i in tseqs]
@@ -438,8 +436,11 @@ def alignfunc(params, infile, ingroup, exclude, longname, quiet):
                     if not ffilter:
                         ## write aligned loci to temp files for later 
                         ## concatenation into the .loci file
-                        writetokeep(params, snpsite, zz, longname,
-                                    fm1, fm2, sm1, sm2, aout, olocus)
+                        if sm1-fm1 > 32:
+                            writetokeep(params, snpsite, zz, longname,
+                                        fm1, fm2, sm1, sm2, aout, olocus)
+                        #else:
+                        #    print fm1, fm2, sm1, sm2
                     else:
                         #filterlist.append(ffilter)
                         writetoexclude(params, snpsite, zz,
@@ -527,17 +528,17 @@ def sandi_filter(params, zz, snpsite, fm1, sm1, sm2):
     if 'pair' in params["datatype"]:
         ## if paired, apply separate filter to first and second reads
         snp1, snp2 = "".join(snpsite).split("nn")
-        snp1 = snp1.replace("*", "-")
-        if snp1.count("-") > int(params["s1"]):
+        #snp1 = snp1.replace("*", "-")
+        if snp1.count("*") > int(params["s1"]):
             ffilter = "S"
         else:
-            snp2 = snp2.replace("*", "-")
-            if snp2.count("-") > int(params["s2"]):
+            #snp2 = snp2.replace("*", "-")
+            if snp2.count("*") > int(params["s2"]):
                 ffilter = "S"
     else:
-        if "".join(snpsite[fm1:sm1]).replace("*", "-")\
-                       .count('-') > int(params["s1"]):
+        if "".join(snpsite[fm1:sm1]).count('*') > int(params["s1"]):
             ffilter = "S"
+            #.replace("*", "-")\
 
     ## Indel filter
     if not ffilter:
@@ -886,7 +887,6 @@ def main(params, infile, taxadict, minhits, version, quiet):
                  "\n\t  from the existing .loci file. To create a new .loci"+\
                  "\n\t  file and stats output move/delete "+params["outname"]+\
                  ".loci\n\t  or change the outname prefix in the params file\n")
-
     else:
         ## split up clusters and align on different nodes
         splitandalign(params, infile, ingroup,
@@ -905,16 +905,22 @@ def main(params, infile, taxadict, minhits, version, quiet):
         dostats(params, ingroup, outgroup, longname,
                 locus, filterlist, version, quiet)
 
+
+
     ## make other formatted files "
     if "*" in params["outform"]:
         params["outform"] = ",".join(list("pnasvutmkgfc"))
     formats = params["outform"].split(",")
+
+
 
     ## make alleles output
     if "a" in formats:
         if not quiet:
             sys.stderr.write("\twriting alleles file\n")
         makehaplos(params, longname)
+
+
 
     ## make phy and/or nex
     if any([i in formats for i in ['n', 'p']]):
@@ -925,11 +931,15 @@ def main(params, infile, taxadict, minhits, version, quiet):
                 sys.stderr.write("\twriting phylip file\n")
         loci2phynex.make(params, names, longname, formats)
 
+
+
     ## make gphocs format
     if 'f' in formats:
         if not quiet:        
             sys.stderr.write("\twriting gphocs file\n")
         loci2gphocs.make(params["work"], params["outname"])
+
+
 
     ## formats that depend on snp files
     if any([i in formats for i in list("usktg")]):
@@ -942,7 +952,9 @@ def main(params, infile, taxadict, minhits, version, quiet):
                 sys.stderr.write("\twriting STRUCTURE file\n")
             if 'g' in formats:
                 sys.stderr.write("\twriting geno file\n")
-        loci2SNP.make(params, names)
+        loci2SNP.main(params, names)
+
+
 
     ## make treemix output (uses the usnp files above)
     if "t" in formats:
@@ -953,6 +965,8 @@ def main(params, infile, taxadict, minhits, version, quiet):
         else:
             print "\t  ** must enter group/clade assignments"+\
                   "for treemix output "
+
+
 
     ## make migrate output 
     if 'm' in formats: #[i[0] for i in formats]:
@@ -967,6 +981,8 @@ def main(params, infile, taxadict, minhits, version, quiet):
             loci2mig.make(params, taxadict, minhits, maxnumberloci)
         else:
             print "\t  ** must enter group/clade assignments for migrate-n output "
+
+
 
     ## make vcf
     if 'v' in formats:

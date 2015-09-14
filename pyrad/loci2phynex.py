@@ -2,6 +2,8 @@
 """ make phylip or nexus formatted data outputs from .loci file """
 
 import numpy as np
+# pylint: disable=E1101
+
 
 def make(params, names, longname, formats):
     """ make outputs """
@@ -40,7 +42,11 @@ def make(params, names, longname, formats):
                 #print arrayed
                 break
             else:
-                name, seq = samp.split()
+                try:
+                    name, seq = samp.split()
+                except ValueError:
+                    print locus.next()
+                    print samp
                 anames.append(name[1:])
                 seqs.append(seq.strip())
         ## reset
@@ -50,8 +56,10 @@ def make(params, names, longname, formats):
             break
         ## create mask for columns that are empty or 
         ## that are paired-end separators (compatible w/ pyrad v2 and v3)
-        mask = [i for i in range(len(arrayed.T)) if not \
-                np.all([j in list("N-nxX") for j in arrayed.T[i]])]
+        mask = [i for i in arrayed.T if any([j not in list("N-n") for j in i])]
+        masked = np.dstack(mask)[0]
+        #mask = [i for i in range(len(arrayed.T)) if not \
+        #        np.all([j in list("N-nxX") for j in arrayed.T[i]])]
 
         ## uncomment to print block info (used to partition by locus)
         #blockend += minray
@@ -62,9 +70,10 @@ def make(params, names, longname, formats):
         ## append data to dict
         for name in names:
             if name in anames:
-                fdict[name].append(arrayed[anames.index(name), mask].tostring())
+                fdict[name].append(masked[anames.index(name), :].tostring())
             else:
-                fdict[name].append("N"*len(arrayed[0, mask]))
+                fdict[name].append("N"*masked.shape[1])
+
 
     #############################
     ## print out .PHY file by default

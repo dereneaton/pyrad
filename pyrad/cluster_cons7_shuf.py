@@ -110,7 +110,7 @@ def cluster(params, handle, gid, quiet):
         threads = " -threads 1"
     else:
         mask = " -qmask "+params["mask"]
-        threads = " -threads 6"
+        threads = " -threads 8"
     if quiet:
         quietarg = " -quiet "
     else:

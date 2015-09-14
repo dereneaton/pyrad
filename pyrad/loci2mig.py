@@ -34,9 +34,9 @@ def make(params, taxadict, minhits, maxnumberloci):
     minzip = zip(taxa.keys(), minhits)
 
     ## read in data to sample names
-    locilines = iter(open(params["work"]+"/outfiles/"+\
-                          params["outname"]+".loci", 'rb'))
-                     #.\read().strip().split("|")[:-1]
+    loci = open(params["work"]+"/outfiles/"+\
+                params["outname"]+".loci", 'rb')\
+                .read().strip().split("|\n")
 
     ## filter loci for mincoverage
     for loc in loci:
