@@ -387,6 +387,11 @@ def alignFUNC(infile, minspecies, ingroup,
                         if any([y[FM1:SM1].count("-") > int(a1) for x,y in zz]):
                             I = "%I"
 
+                " final check of edge filter "
+                if not SM1-FM1 >= 32:
+                    S = "%S"
+                
+
             if len(D+P+S+I) == 0:
                 " write aligned loci to temp files for later concatenation into the .loci file"
                 if 'pair' in datatype:
