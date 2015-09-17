@@ -62,8 +62,9 @@ def makederepclust(outfolder,handle,w1,datatype):
                 else:
                     " name change for reverse hits"
                     " allow low Cov for reverse hits"
-                    #seq += S[i].replace("_r1;","_c1;")+'-\n' + comp(D[S[i]][1][::-1]) + "\n"
-                    seq += S[i].replace("_r1;","_c1;")+'-\n' + comp(D[S[i]][1][::-1]) + "\n"
+                    revseq = comp(D[S[i]][1][::-1])
+                    seq += S[i]+'-\n'+revseq'\n'
+
         SEQS.append(seq)
     outfile.write("//\n//\n".join(SEQS))
 
@@ -196,7 +197,7 @@ def fullcluster(vsearch, outfolder, handle, wclust, parallel, datatype, fileno, 
         C = " -cluster_smallmem "+handle.replace(".edit",".derep")
     if datatype in ['gbs','merged']:
         P = " -strand both "
-        COV = " -query_cov .35 " 
+        COV = " -query_cov .50 " 
     elif datatype == 'pairgbs':
         P = " -strand both "
         COV = " -query_cov .90 " 
@@ -426,7 +427,11 @@ def alignwrap(infile,mindepth,muscle,w1):
             keys = D1.keys()
             keys.sort(key=lambda x:int(x.split(";")[1].replace("size=","")), reverse=True)
             for key in keys:
-                STACK.append(key+'\n'+D1[key][leftlimit:])
+                if key[-1] == "-":
+                    if not any([i != "-" for i in D1[key][:4]]):
+                        STACK.append(key+'\n'+D1[key][leftlimit:])
+                else:
+                    STACK.append(key+'\n'+D1[key][leftlimit:])
         else:
             if names:
                 STACK = [names[0]+"\n"+seqs[0]]
@@ -527,40 +532,6 @@ def final(vsearch, outfolder, handle, wclust, mindepth,
 
     " build cluster files from .u & .temp files "
     makederepclust(outfolder, handle, w1, datatype)
-
-    # " thread each align job x2 to reach ~100% "
-    # " split file in half"
-    # f = gzip.open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz"), 'rb').read().strip().split("//\n")
-    # chunk1 = f/2
-    # ff1 = gzip.open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz.1"))
-    # ff1.write("//\n\n".join(f[:chunk1])+"//\n\n")
-    # ff1.close()
-    # ff2 = gzip.open(outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz.2"))
-    # ff2.write("//\n\n".join(f[chunk1:])+"//\n\n")
-    # ff2.close()
-
-    # threads = []
-    # for ff in range(1,3):
-    #     if 'pair' in datatype:
-    #         margs = (outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz."+str(ff)),
-    #                               mindepth, muscle, w2,)
-    #         t = threading.Thread(target=alignwrapPAIR, args=margs)
-    #     else:
-    #         margs = (outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz."+str(ff)),
-    #                  mindepth, muscle, w1,)
-    #         t = threading.Thread(target=alignwrap, args=margs)
-    #     threads.append(t)
-    #     t.start()
-        
-    # " combine split alignment files"
-    # ff1 = outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz.1")
-    # ff2 = outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz.2")
-    # ff3 = outfolder+"/"+handle.split("/")[-1].replace(".edit",".clust.gz")
-                                                      
-    # cmd = "/bin/cat "+ff1+" "+ff2+" > "+ff3
-    # os.system(cmd)
-    # os.remove(ff1)
-    # os.remove(ff2)    
 
     " align clusters w/ muscle "
     if 'pair' in datatype:
