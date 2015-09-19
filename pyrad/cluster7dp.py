@@ -88,8 +88,8 @@ def makederepclust(params, outfolder, handle):
                 else:
                     ## name change for reverse hits
                     ## allow low Cov for reverse hits
-                    seq += matchnames[i].replace("_r1;", "_c1;")+\
-                               '-\n'+comp(hits[matchnames[i]][1][::-1])+"\n"
+                    seq += matchnames[i]+\
+                           '-\n'+comp(hits[matchnames[i]][1][::-1])+"\n"
         seqslist.append(seq)
     outfile.write("//\n//\n".join(seqslist))
 
