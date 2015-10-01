@@ -63,7 +63,7 @@ def makederepclust(outfolder,handle,w1,datatype):
                     " name change for reverse hits"
                     " allow low Cov for reverse hits"
                     revseq = comp(D[S[i]][1][::-1])
-                    seq += S[i]+'-\n'+revseq'\n'
+                    seq += S[i]+'-\n'+revseq+'\n'
 
         SEQS.append(seq)
     outfile.write("//\n//\n".join(SEQS))
