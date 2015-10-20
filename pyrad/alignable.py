@@ -489,7 +489,7 @@ def makealign(ingroup, minspecies, outname, infile,
         dat = []
         ## continue to the end of next locus
         gg = takewhile(lambda x: x!="//\n", f)
-        while nloci < bigs:
+        while nloci <= bigs:
             try:
                 line = next(gg)
                 if line:
