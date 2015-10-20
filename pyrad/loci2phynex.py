@@ -56,7 +56,10 @@ def makephy(WORK, outname, names, longname, formats):
                 #print arrayed
                 break
             else:
-                name, seq = samp.split()
+                try:
+                    name, seq = samp.split()
+                except ValueError:
+                    print samp
                 anames.append(name[1:])
                 seqs.append(seq.strip())
         ## reset
