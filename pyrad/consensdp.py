@@ -379,7 +379,7 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                             " remove very rare thirds representing a possible error at a heterozygous site \
                             that changed the base to the alternate allele at that site "
                             #if len(al) >= 50:
-                                #al = [i for i in al if al.count(i) > len(al)/25.]
+                            al = [i for i in al if al.count(i) > len(al)*.25]
 
                             AL = sorted(set(al), key=al.count)
                             ploidy = len(AL)
@@ -392,6 +392,10 @@ def consensus(infile,E,H,mindepth,maxN,maxH,datatype,
                                     consensus = findalleles(consensus,sss,AL)
                                 else:
                                     consensus += "@E"
+                                    # print ploidy, haplos
+                                    # print alleles
+                                    # print "AL", AL
+                                    # print "al", al
 
                         #else: Plist.append(1)
                         
