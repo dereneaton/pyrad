@@ -7,7 +7,7 @@ requirements = [
 
 setuptools.setup(
     name="pyrad",
-    version="3.0.62",
+    version="3.0.63",
     url="https://github.com/dereneaton/pyrad",
 
     author="Deren Eaton",

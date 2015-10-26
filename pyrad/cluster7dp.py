@@ -259,6 +259,10 @@ def stats(outfolder, handle, mindepth, multihits):
     out = [namecheck, len(depth),
            me, std, len(keep), mek, stdk, multihits]
 
+    depthout = open(temphandle.replace(".clustS.gz", ".depths"), 'wb')
+    depthout.write(",".join([str(i) for i in depth]))
+    depthout.close()
+        
     bins = [0, 5, 10, 15, 20, 25, 30, 35, 40, 50, 100, 250, 500, 99999]
     ohist, edges = numpy.histogram(depth,bins)
     hist = [float(i)/sum(ohist) for i in ohist]
