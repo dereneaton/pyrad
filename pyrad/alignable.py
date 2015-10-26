@@ -242,7 +242,7 @@ def alignFUNC(infile, minspecies, ingroup,
         onames = []
         seqs = []
         nameiter = 0
-        while d[0] != "//\n":
+        while "//\n" not in d[0]:
             "record names and seqs, remove # at end"
             "record the name into locus name. "
             try:
@@ -260,6 +260,9 @@ def alignFUNC(infile, minspecies, ingroup,
             d = k.next()
             nameiter += 1
 
+        ## get loc number
+        notes = d[0].split("//")[1]
+       
         " apply duplicate filter "
         if len(cnames) != len(set(cnames)):      ## no grouping un-clustered copies from same taxon
             dups += 1                            ## record duplicates in loci
@@ -299,7 +302,6 @@ def alignFUNC(infile, minspecies, ingroup,
                 seqs = [[i] for i in seqs]
                 stringnames = alignfast(WORK,pronum,names,seqs,muscle)
                 if len(stringnames) < 1:
-                    print 'aaaaaaah'
                     print stringnames
                 nn, sss = sortalign(stringnames)
                 
@@ -496,7 +498,7 @@ def makealign(ingroup, minspecies, outname, infile,
                     dat.append(line)
 
             except StopIteration:
-                dat.append("//\n")
+                dat.append("//"+str(sumloci+nloci+1)+"//\n")
                 ## reset generator
                 gg = takewhile(lambda x: x!="//\n", f)
                 #line = gg.next()
@@ -507,9 +509,10 @@ def makealign(ingroup, minspecies, outname, infile,
         sumloci += nloci
 
         if sumloci < totclust:
-            loci = "".join(dat).split("//\n") #[:-1]
+            loci = "".join(dat).split("//\n") 
             ff = open(WORK+".chunk_"+str(chunks), 'wb')
-            ff.write("//\n\n".join(loci))     #+"//\n\n")
+            ## numbered
+            ff.write("//\n\n".join(loci))    
             ff.close()
             chunks += 1
             #print nloci, sumloci, totclust
@@ -524,7 +527,7 @@ def makealign(ingroup, minspecies, outname, infile,
     " set up parallel "
     work_queue = multiprocessing.Queue()
     result_queue = multiprocessing.Queue()
-    for handle in glob.glob(WORK+".chunk*"):
+    for handle in sorted(glob.glob(WORK+".chunk*")):
         work_queue.put([handle, minspecies, ingroup, MAXpoly,
                         outname, s1, s2, muscle, 
                         exclude, overhang, WORK, CUT,
@@ -548,17 +551,23 @@ def makealign(ingroup, minspecies, outname, infile,
 
     locicounter = 1
     aligns = glob.glob(WORK+".align*")
+    aligns.sort(key=lambda x: int(x.split("_")[-1]))
     locifile = open(WORK+"outfiles/"+outname+".loci", "w")
     
     for chunkfile in aligns:
         chunkdata = open(chunkfile, "r")
         for lines in chunkdata:
             if lines.startswith("//"):
-                lines = lines.replace("|\n", "|"+str(locicounter)+"\n", 1)
+                #lines = lines.replace("|\n", "|"+str(locicounter)+"\n", 1)
+                lines = lines.replace("\n", ","+str(locicounter)+"\n", 1)
                 locicounter += 1
             locifile.write(lines)
         chunkdata.close()
-        os.remove(chunkfile)
+        #os.remove(chunkfile)
+
+    #for handle in glob.glob(WORK+".chunk*"):
+    #    if os.path.exists(handle):
+    #        os.remove(handle)
     
     locifile.close()
     
@@ -813,7 +822,6 @@ def main(outgroup, minspecies, outname,
                 print "\twriting nexus file"
             loci2phynex.make(WORK,outname,names,longname, formats)
     finally:
-        print 'done'
         if os.path.exists(os.path.join(WORK, "tmp")):
             shutil.rmtree(os.path.join(WORK, "tmp"))
         
