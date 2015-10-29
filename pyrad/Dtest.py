@@ -234,7 +234,7 @@ def runtest(infile, L, nboots, snpfreq, submitted):
 
     " split each locus "
     loci = open(infile).read().strip().split("|")[:-1]
-    loci[0] = "\n"+loci[0]
+    loci[0] = "xx\n"+loci[0]
 
     " returns a {} of Locus objects with data from tiptaxa L"
     Ldict = makeSNP(L,snpfreq,loci)
@@ -398,7 +398,9 @@ def multiproc_it(tests, alignfile, outfile, nboots, nproc, namelen, makesort, ma
 
 
 
+        #loci = open(alignfile).read().strip().split("|")[:-1]
         loci = open(alignfile).read().strip().split("|")[:-1]
+        loci[0] = "xx\n"+loci[0]
 
         if makesort:
             makesortfiles('ABBA',ABBAloci,4,loci,outfile,makesort,sub,ps)
