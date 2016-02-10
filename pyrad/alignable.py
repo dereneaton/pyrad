@@ -237,39 +237,34 @@ def alignFUNC(infile, minspecies, ingroup,
         except StopIteration:
             break
         locus += 1
-        names = []
-        cnames = []
-        onames = []
+        names = []    ## record names w/ number
+        cnames = []   ## record names w/o number
+        onames = []   ## record meta info for locus
         seqs = []
         nameiter = 0
         while "//\n" not in d[0]:
             "record names and seqs, remove # at end"
             "record the name into locus name. "
-            try:
-                nam = "_".join(d[0].split(">")[1].split("_")[:-2])
-            except IndexError:
-                print infile
-                print d
+            nam = d[0][1:].rsplit("_", 2)[0]
             
             if nam not in exclude:
-                cnames.append("_".join(d[0].split(">")[1].split("_")[:-2]))
-                names.append("_".join(d[0].split(">")[1].split("_")[:-2])+"_"+str(nameiter))
-                onames.append(d[0].strip().split("_")[-1])
-                #seqs.append([d[1].strip()])
+                cnames.append(nam)
+                names.append(nam+"_"+str(nameiter))
+                onames.append("_".join(d[0][1:].rsplit("_", 2)[1:]))
                 seqs.append(d[1].strip())
             d = k.next()
             nameiter += 1
 
         ## get loc number
-        notes = d[0].split("//")[1]
+        #notes = d[0].split("//")[1]
        
         " apply duplicate filter "
         if len(cnames) != len(set(cnames)):      ## no grouping un-clustered copies from same taxon
             dups += 1                            ## record duplicates in loci
             D = '%D'
-
+            
         " apply minsamp filter "
-        if len([i for i in cnames if i in ingroup])>(minspecies-1):  ## too few ingroup samples in locus
+        if len([i for i in cnames if i in ingroup])>=minspecies:  ## too few ingroup samples in locus
             g4 += 1
 
             "align read1 separate from read2"
@@ -308,8 +303,6 @@ def alignFUNC(infile, minspecies, ingroup,
             " now strip off cut sites "
             if datatype == "merged":
                 sss = [i[len(CUT1):-len(CUT2)] for i in sss]
-            #elif datatype == 'gbs':
-            #    sss = [i[len(CUT1):] for i in sss]
             elif ("c1" in onames) or ("pair" in onames):
                 sss = [i[len(CUT1):-len(CUT2)] for i in sss]
             else:
@@ -461,17 +454,108 @@ def blocks(files, size=2048000):
         yield b
 
 
+def splitandalign(ingroup, minspecies, outname, infile,
+              MAXpoly, parallel, s1, s2, muscle,
+              exclude, overhang, WORK, CUT,
+              a1, a2, datatype, longname, nloci):
+
+    """ split cluster file into smaller files depending on the number
+    of processors and align each file separately using alignfunc function."""
+
+    ## double check that old chunk and aligns are removed
+    for i in glob.glob(WORK+".align*"):
+        os.remove(i)
+    for i in glob.glob(WORK+".chunk*"):
+        os.remove(i)
+
+    ## read infile, split into chunks for aligning, nchuncks
+    ## depends on number of available processors
+    data = gzip.open(infile, 'rb').read().strip().split("//\n")
+    minpar = max(3, parallel)  ## pp
+    chunks = [0+(len(data)/minpar)*i for i in range(minpar)]
+
+    for i in range(len(chunks)-1):
+        with open(WORK+".chunk_"+str(i), 'w') as dat:
+            dat.write("//\n//\n".join(data[chunks[i]:chunks[i+1]])+"//\n//\n")
+
+    ## write the last chunk
+    with open(WORK+".chunk_"+str(i+1), 'w') as dat:
+        dat.write("//\n//\n".join(data[chunks[i+1]:])+"//\n//\n")
+
+    ## set up parallel
+    work_queue = multiprocessing.Queue()
+    result_queue = multiprocessing.Queue()
+    for handle in glob.glob(WORK+".chunk*"):
+        #work_queue.put([params, handle, ingroup, 
+        #                exclude, longname, quiet])
+        work_queue.put([handle, minspecies, ingroup, MAXpoly,
+                        outname, s1, s2, muscle, 
+                        exclude, overhang, WORK, CUT,
+                        a1, a2, datatype, longname])
+    ## spawn workers
+    jobs = []
+    for i in range(minpar):
+        worker = Worker(work_queue, result_queue, alignFUNC)
+        jobs.append(worker)
+        worker.start()
+    for j in jobs:
+        j.join()
+
+    locus = 0
+    for handle in glob.glob(WORK+".chunk*"):
+        locus += int(result_queue.get())
+
+    " output loci and excluded loci and delete temp files... "
+    locicounter = 1
+    aligns = glob.glob(WORK+".align*")
+    aligns.sort(key=lambda x: int(x.split("_")[-1]))
+    locifile = open(WORK+"outfiles/"+outname+".loci", "w")
+    
+    for chunkfile in aligns:
+        chunkdata = open(chunkfile, "r")
+        for lines in chunkdata:
+            if lines.startswith("//"):
+                #lines = lines.replace("|\n", "|"+str(locicounter)+"\n", 1)
+                lines = lines.replace("\n", str(locicounter)+"\n", 1)
+                locicounter += 1
+            locifile.write(lines)
+        chunkdata.close()
+        #os.remove(chunkfile)
+
+    ## clean up
+    for handle in glob.glob(WORK+".chunk*"):
+        if os.path.exists(handle):
+            os.remove(handle)
+    
+    locifile.close()
+    
+    unaligns = glob.glob(WORK+".not*")
+    excluded_loci_file = open(WORK+"outfiles/"+outname+".excluded_loci", "w")
+    
+    for excludechunk in unaligns:
+        excludedata = open(excludechunk, "r")
+        for lines in excludedata:
+            excluded_loci_file.write(lines)
+        excludedata.close()
+        os.remove(excludechunk)
+    
+    excluded_loci_file.close()
+
+        
+        
+
 def makealign(ingroup, minspecies, outname, infile,
               MAXpoly, parallel, s1, s2, muscle,
               exclude, overhang, WORK, CUT,
               a1, a2, datatype, longname, nloci):
 
-    " break input file into chunks for n threads "
-    if glob.glob(WORK+".align") or glob.glob(WORK+".chunk"):
-        os.remove(WORK+".align_* "+WORK+".chunk_*")
+    ## ensure aligns and chunks are removed
+    removed = glob.glob(WORK+".align") + glob.glob(WORK+".chunk")
+    for infile in removed:
+        os.remove(infile)
 
-    """ read infile, split into chunks for aligning, nchuncks
-    depends on number of available processors """
+    ## read infile, split into chunks for aligning, nchuncks
+    ## depends on number of available processors """
     with gzip.open(infile, 'rb') as f:
         #totlines = sum(b1.count("\n") for b1 in blocks(f))
         totclust = sum(b1.count("//\n") for b1 in blocks(f))
@@ -498,7 +582,7 @@ def makealign(ingroup, minspecies, outname, infile,
                     dat.append(line)
 
             except StopIteration:
-                dat.append("//"+str(sumloci+nloci+1)+"//\n")
+                dat.append("//"+str(sumloci+nloci+1)+"\n//\n")
                 ## reset generator
                 gg = takewhile(lambda x: x!="//\n", f)
                 #line = gg.next()
@@ -509,18 +593,16 @@ def makealign(ingroup, minspecies, outname, infile,
         sumloci += nloci
 
         if sumloci < totclust:
-            loci = "".join(dat).split("//\n") 
-            ff = open(WORK+".chunk_"+str(chunks), 'wb')
-            ## numbered
-            ff.write("//\n\n".join(loci))    
-            ff.close()
+            #loci = "".join(dat).split("//\n") 
+            with open(WORK+".chunk_"+str(chunks), 'wb') as ff:
+                #ff.write("//\n\n".join(loci))
+                ff.write("".join(dat))    
             chunks += 1
             #print nloci, sumloci, totclust
     ## final
     loci = "".join(dat).split("//\n") #[:-1]
-    ff = open(WORK+".chunk_"+str(chunks), 'wb')
-    ff.write("//\n\n".join(loci))     #+"//\n\n")
-    ff.close()
+    with open(WORK+".chunk_"+str(chunks), 'wb') as ff:
+        ff.write("//\n\n".join(loci))     #+"//\n\n")
     chunks += 1
     #print nloci, sumloci, totclust
         
@@ -542,13 +624,13 @@ def makealign(ingroup, minspecies, outname, infile,
     for j in jobs:
         j.join()
 
+    print("done with that")
+    
     locus = 0
     for handle in glob.glob(WORK+".chunk*"):
         locus += int(result_queue.get())
 
-
     " output loci and excluded loci and delete temp files... "
-
     locicounter = 1
     aligns = glob.glob(WORK+".align*")
     aligns.sort(key=lambda x: int(x.split("_")[-1]))
@@ -559,15 +641,17 @@ def makealign(ingroup, minspecies, outname, infile,
         for lines in chunkdata:
             if lines.startswith("//"):
                 #lines = lines.replace("|\n", "|"+str(locicounter)+"\n", 1)
-                lines = lines.replace("\n", ","+str(locicounter)+"\n", 1)
+                #lines = lines.replace("\n", ","+str(locicounter)+"\n", 1)
+                lines = lines.replace("\n", str(locicounter)+"\n", 1)                
                 locicounter += 1
             locifile.write(lines)
         chunkdata.close()
         #os.remove(chunkfile)
 
-    #for handle in glob.glob(WORK+".chunk*"):
-    #    if os.path.exists(handle):
-    #        os.remove(handle)
+    ## clean up
+    for handle in glob.glob(WORK+".chunk*"):
+        if os.path.exists(handle):
+            os.remove(handle)
     
     locifile.close()
     
@@ -797,7 +881,7 @@ def main(outgroup, minspecies, outname,
 
     else:
         " call alignment function to make .loci files"
-        locus = makealign(ingroup, minspecies, outname, infile,
+        locus = splitandalign(ingroup, minspecies, outname, infile,
                           MAXpoly, parallel, s1, s2, muscle,
                           exclude, overhang, WORK, CUT,
                           a1, a2, datatype, longname, nloci)

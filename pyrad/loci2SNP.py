@@ -24,7 +24,7 @@ def make(WORK, outname, names, formats, seed, ploidy):
         Si[name] = []
 
     " record bi-allelic snps"
-    bis = 0
+    nobis = 0
 
     " for each locus select out the SNPs"
     for loc in finalfile.strip().split("|")[:-1]:
@@ -65,11 +65,16 @@ def make(WORK, outname, names, formats, seed, ploidy):
             if k == max(cov.values()):
                 maxlist.append(j)
 
-        " Is bi-allelic ? "
+        " Is bi-allelic after resolution of ambigs? "
         bisnps = []
-        for i in maxlist:
-            if len(set([ss[ns.index(tax)][i] for tax in S if tax in ns])) < 3:
-                bisnps.append(i)
+        for maxl in maxlist:
+            bases = [ss[ns.index(tax)][maxl] for tax in S if tax in ns]
+            ambigs = list(chain(*[alignable.unstruct(i) for i in bases if i in "RSWYMK"]))
+            bases = set(bases+ambigs)
+            for ambig in "RSWYMKN-":
+                bases.discard(ambig)
+            if len(bases) <= 2:
+                bisnps.append(maxl)
 
         #rando = pis[np.random.randint(len(pis))]
         #rando -= (longname+5)
@@ -77,13 +82,15 @@ def make(WORK, outname, names, formats, seed, ploidy):
             rando = bisnps[np.random.randint(len(bisnps))]
         elif maxlist:
             rando = maxlist[np.random.randint(len(maxlist))]
+
+        ## record how many loci have no 
         tbi = 0
         for tax in S:
             if tax in ns:
                 if pis:
                     " if none are bi-allelic "
                     if not bisnps:
-                        tbi += 1
+                        tbi = 1
                     Si[tax].append(ss[ns.index(tax)][rando])
             if pis:
                 " add spacer between loci "                
@@ -91,7 +98,7 @@ def make(WORK, outname, names, formats, seed, ploidy):
             else:
                 " invariable locus "
                 S[tax].append("_ ")
-        bis += tbi
+        nobis += tbi
     " names "
     SF = list(S.keys())
     SF.sort()
@@ -116,7 +123,7 @@ def make(WORK, outname, names, formats, seed, ploidy):
 
     statsout  = open(WORK+"stats/"+outname+".stats",'a')
     print >>statsout, "sampled unlinked SNPs=",len(Si.values()[0])
-    print >>statsout, "sampled unlinked bi-allelic SNPs=",len(Si.values()[0])-bis
+    print >>statsout, "sampled unlinked bi-allelic SNPs=", len(Si.values()[0])-nobis
     statsout.close()
 
     if 'k' in formats:

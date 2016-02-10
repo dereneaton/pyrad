@@ -509,7 +509,7 @@ def main():
                     inclustfile = WORK+'clust'+wclust+"/cat.clust_.gz"
                     sys.stderr.write("\n\tCluster input file: using \n\t"+inclustfile+"\n\n")
                 else:
-                    print "\tnot found"
+                    print "\t{} not found".format(inclustfile)
                     #print "\tcat.clust_ file is selected based on line 15 subset argument "
                     #print "\n\t if you wish to exclude samples from an existing cat.clust file "+\
                     #      "\n\t in your output alignments list exclude names on line 17 of the params file.\n "
