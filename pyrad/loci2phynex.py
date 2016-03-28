@@ -48,7 +48,7 @@ def makephy(WORK, outname, names, longname):
     done = 0
     nloci = 0
     nbases = 0
-    while nloci < 50000: #not done:
+    while not done: #nloci < 50000: #not done:
         seqs = []
         #arrayed = np.array([])
         anames = []
@@ -105,7 +105,7 @@ def makephy(WORK, outname, names, longname):
         nbases += len(fdict[name][-1])
 
         ## after x iterations tmp pickle fdict?
-        if not nloci % 1e4:
+        if not nloci % int(1e4):
             ## concat strings
             for name in fdict:
                 with open(os.path.join(WORK, "tmp", 
