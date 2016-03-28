@@ -56,7 +56,7 @@ You will need the following two Python dependencies with `pyrad`.
 
 In addition to the programs  
 
- * `muscle <www.drive5.com/muscle/downloads>`_
+ * `muscle <http://www.drive5.com/muscle/downloads.htm>`_
  * `vsearch <https://github.com/torognes/vsearch>`_
 
 Example usage (see tutorials)
