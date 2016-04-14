@@ -66,16 +66,16 @@ def stack(D):
 
 
 def countpolys(seqs):
-    t = [tuple(seq) for seq in seqs]
+    t = [tuple([i.upper() for i in seq]) for seq in seqs]
     return max([sum(i) for i in stack(t)])
 
 
 def alignfast(WORK,pronum,names,seqs,muscle):
-    ST = "\n".join('>'+i+'\n'+j[0] for i,j in zip(names,seqs))
     """
     if ST is very large it needs to be written to file, otherwise
     the process can just be piped
     """
+    ST = "\n".join('>'+i+'\n'+j[0] for i,j in zip(names,seqs))
     if len(ST) > 100000:
         fstring = WORK+".tempalign_"+pronum
         with open(fstring,'w') as inST:
@@ -106,6 +106,7 @@ def sortalign(stringnames):
     G = stringnames.split("\n>")
     GG = [i.split("\n")[0].replace(">","")+"\n"+"".join(i.split('\n')[1:]) for i in G]
     aligned = [i.split("\n") for i in GG]
+    aligned.sort(key=lambda x: int(x[0].split("_")[-1]))
     nn = [">"+i[0] for i in aligned]
     seqs = [i[1] for i in aligned]
     return nn,seqs
@@ -205,12 +206,32 @@ def trimmer(overhang, nn, sss, datatype, minspecies):
 
 
 
+def lowerin(seqs, sss):
+    ## slow kludge code to put lower case ambigs back in
+    ## todo: speed up
+    ambigs = []
+    for seq in seqs:
+        ambigs.append([i for i in seq[0] if i in "RSMKYWrsmkyw"])
+ 
+    ## put lowers in 
+    for idx in range(len(seqs)):
+        ## which base needs replacing
+        dambd = {i:0 for i in "RSMKYW"}
+        row = ambigs[idx]
+
+        for amb in row:
+            dambd[amb.upper()] += 1
+            sss[idx] = sss[idx].replace(amb.upper(), amb, dambd[amb.upper()])
+    return sss
+
+
+
 
 def alignFUNC(infile, minspecies, ingroup,
               MAXpoly, outname, s1, s2,
               muscle, exclude,
               overhang, WORK,
-              CUT, a1, a2, datatype, longname):
+              CUT, a1, a2, datatype, longname, makealleles):
 
     " TODO: resolve ambiguous cutters "
     if "," in CUT:
@@ -277,6 +298,9 @@ def alignFUNC(infile, minspecies, ingroup,
                 "align first reads"
                 stringnames = alignfast(WORK,pronum,names,firsts,muscle)
                 nn, ss1 = sortalign(stringnames)
+                if makealleles:
+                    ss1 = lowerin(firsts, ss1)
+
                 D1 = {}
                 for i in range(len(nn)):
                     D1[nn[i]] = ss1[i]
@@ -287,19 +311,30 @@ def alignFUNC(infile, minspecies, ingroup,
                 "align second reads"
                 stringnames = alignfast(WORK,pronum,names,seconds,muscle)
                 nn, ss2 = sortalign(stringnames)
+                if makealleles:
+                    ss2 = lowerin(seconds, ss2)
+
                 D2 = {}
                 for i in range(len(nn)):
                     D2[nn[i]] = ss2[i]
                 nn = keys 
                 sss = [D1[key]+"nnnn"+D2[key] for key in keys]
+                
             else:
                 "align reads"
                 seqs = [[i] for i in seqs]
+
+                ## get alignment
                 stringnames = alignfast(WORK,pronum,names,seqs,muscle)
                 if len(stringnames) < 1:
                     print stringnames
+                ## sort alignment
                 nn, sss = sortalign(stringnames)
-                
+                ## put lowers in 
+                if makealleles:
+                    sss = lowerin(seqs, sss)
+
+
             " now strip off cut sites "
             if datatype == "merged":
                 sss = [i[len(CUT1):-len(CUT2)] for i in sss]
@@ -333,7 +368,7 @@ def alignFUNC(infile, minspecies, ingroup,
 
             " record a string for variable sites in snpsite"
             for site in bases:
-                reals = [i for i in site if i not in list("N-")]
+                reals = [i.upper() for i in site if i not in list("N-")]
                 if len(set(reals)) > 1:                                ## if site is variable
                     " convert ambiguity bases to reals "
                     for i in xrange(len(reals)):
@@ -391,17 +426,16 @@ def alignFUNC(infile, minspecies, ingroup,
                 " write aligned loci to temp files for later concatenation into the .loci file"
                 if 'pair' in datatype:
                     snp1,snp2 = "".join(snpsite).split("nnnn")
-                    for x,y in zz:
+                    for x, y in zz:
                         first,second = y.split("nnnn")
                         space = ((longname+5)-len(x))
-                        print >>aout, x+" "*space + first[FM1:SM1].upper()+\
-                              'nnnn'+second[FM2:SM2].upper()
-                    print >>aout, '//'+' '*(longname+3)+snp1[FM1:SM1]+"    "+snp2[FM2:SM2]+"|"+notes
+                        print >>aout, "{}{}{}nnnn{}".format(x, " "*space, first[FM1:SM1], second[FM2:SM2])
+                    print >>aout, "//{}{}    {}|{}".format(" "*(longname+3), snp1[FM1:SM1], snp2[FM2:SM2], notes)
                 else:
-                    for x,y in zz:
+                    for x, y in zz:
                         space = ((longname+5)-len(x))
-                        print >>aout, x+" "*space + y[FM1:SM1].upper()
-                    print >>aout, '//'+' '*(longname+3)+"".join(snpsite[FM1:SM1])+"|"+notes
+                        print >>aout, "{}{}{}".format(x, " "*space, y[FM1:SM1])
+                    print >>aout, "//{}{}|{}".format(" "*(longname+3), "".join(snpsite[FM1:SM1]), notes)
                     
             else:
                 " write to exclude file "
@@ -410,16 +444,18 @@ def alignFUNC(infile, minspecies, ingroup,
                     for x,y in zz:
                         first,second = y.split("nnnn")
                         space = ((longname+5)-len(x))
-                        print >>nout, x+" "*space+first[FM1:SM1].upper()+'nnnn'+second[FM2:SM2].upper()
-                    print >>nout, '//'+D+P+S+I+' '*(longname+3-len(D+P+S+I))+snp1[FM1:SM1]+\
-                          "    "+snp2[FM2:SM2]+"|"+notes
+                        print >>nout, "{}{}{}nnnn{}".format(x, " "*space, first[FM1:SM1].upper(), second[FM2:SM2].upper())
+                    print >>nout, "//{}{}{}    {}|{}".format(D+P+S+I, " "*(longname+3-len(D+P+S+I)),
+                                                               snp1[FM1:SM1], snp2[FM2:SM2], notes)
 
                 else:
-                    for x,y in zz:
+                    for x, y in zz:
                         space = ((longname+5)-len(x))
-                        print >>nout, x+" "*space+y[FM1:SM1].upper()
-                    print >>nout, '//'+D+P+S+I+' '*(longname+3-len(D+P+S+I))+"".join(snpsite[FM1:SM1])+"|"+notes
-                
+                        print >>nout, "{}{}{}".format(x, " "*space, y[FM1:SM1].upper())
+                    print >>nout, "//{}{}|{}".format(D+P+S+I, " "*(longname+3-len(D+P+S+I)),
+                                                      "".join(snpsite[FM1:SM1]), notes)
+
+                                    
     nout.close()
     aout.close()
     sys.stderr.write('.')
@@ -457,7 +493,7 @@ def blocks(files, size=2048000):
 def splitandalign(ingroup, minspecies, outname, infile,
               MAXpoly, parallel, s1, s2, muscle,
               exclude, overhang, WORK, CUT,
-              a1, a2, datatype, longname, nloci):
+              a1, a2, datatype, longname, nloci, formats):
 
     """ split cluster file into smaller files depending on the number
     of processors and align each file separately using alignfunc function."""
@@ -482,6 +518,9 @@ def splitandalign(ingroup, minspecies, outname, infile,
     with open(WORK+".chunk_"+str(i+1), 'w') as dat:
         dat.write("//\n//\n".join(data[chunks[i+1]:])+"//\n//\n")
 
+    ## make alleles file
+    makealleles = bool("a" in formats)
+
     ## set up parallel
     work_queue = multiprocessing.Queue()
     result_queue = multiprocessing.Queue()
@@ -491,7 +530,7 @@ def splitandalign(ingroup, minspecies, outname, infile,
         work_queue.put([handle, minspecies, ingroup, MAXpoly,
                         outname, s1, s2, muscle, 
                         exclude, overhang, WORK, CUT,
-                        a1, a2, datatype, longname])
+                        a1, a2, datatype, longname, makealleles])
     ## spawn workers
     jobs = []
     for i in range(minpar):
@@ -509,25 +548,46 @@ def splitandalign(ingroup, minspecies, outname, infile,
     locicounter = 1
     aligns = glob.glob(WORK+".align*")
     aligns.sort(key=lambda x: int(x.split("_")[-1]))
-    locifile = open(WORK+"outfiles/"+outname+".loci", "w")
-    
+
+    ## write loci output
+    locifile = open(WORK+"outfiles/"+outname+".loci", "w")    
     for chunkfile in aligns:
         chunkdata = open(chunkfile, "r")
-        for lines in chunkdata:
-            if lines.startswith("//"):
-                #lines = lines.replace("|\n", "|"+str(locicounter)+"\n", 1)
-                lines = lines.replace("\n", str(locicounter)+"\n", 1)
+        for line in chunkdata:
+            if line.startswith("//"):
+                #line = line.replace("|\n", str(locicounter)+"|\n", 1)
+                #lines = lines.replace("\n", str(locicounter)+"\n", 1)
+                locifile.write("{}{}|\n".format(line.strip(), locicounter))
                 locicounter += 1
-            locifile.write(lines)
+            else:
+                nam_, seq = line.rsplit(" ", 1)
+                locifile.write("{} {}".format(nam_, seq.upper()))
         chunkdata.close()
-        #os.remove(chunkfile)
-
-    ## clean up
-    for handle in glob.glob(WORK+".chunk*"):
-        if os.path.exists(handle):
-            os.remove(handle)
-    
     locifile.close()
+
+
+    if makealleles:    
+        locicounter = 1    
+        ## write alleles output
+        allelesfile = open(WORK+"outfiles/"+outname+".alleles", "w")        
+        for chunkfile in aligns:
+            chunkdata = open(chunkfile, "r")
+            for line in chunkdata:
+                if line.startswith("//"):
+                    allelesfile.write("{}{}|\n".format(line.strip(), locicounter))
+                    locicounter += 1
+                else:
+                    bits = line.split(" ")
+                    hap0, hap1 = breakalleles(bits[-1])
+                    allelesfile.write("{}_0{}{}".format(bits[0], " ".join(bits[1:-1]), hap0))
+                    allelesfile.write("{}_1{}{}".format(bits[0], " ".join(bits[1:-1]), hap1))
+            chunkdata.close()
+        allelesfile.close()
+
+    ## clean up chunks and aligns
+    chunks = glob.glob(WORK+".chunk*") + glob.glob(WORK+".align")
+    for handle in chunks:
+        os.remove(handle)
     
     unaligns = glob.glob(WORK+".not*")
     excluded_loci_file = open(WORK+"outfiles/"+outname+".excluded_loci", "w")
@@ -552,7 +612,7 @@ def makealign(ingroup, minspecies, outname, infile,
     ## ensure aligns and chunks are removed
     removed = glob.glob(WORK+".align") + glob.glob(WORK+".chunk")
     for infile in removed:
-        os.remove(infile)
+        pass#os.remove(infile)
 
     ## read infile, split into chunks for aligning, nchuncks
     ## depends on number of available processors """
@@ -624,7 +684,7 @@ def makealign(ingroup, minspecies, outname, infile,
     for j in jobs:
         j.join()
 
-    print("done with that")
+    #print("done with that")
     
     locus = 0
     for handle in glob.glob(WORK+".chunk*"):
@@ -681,7 +741,7 @@ def DoStats(ingroup, outgroups, outname,
     notkept   = open(WORK+"outfiles/"+outname+".excluded_loci").read()
 
     " get stats from loci and excluded_loci "
-    nloci = finalfile.count("|")
+    nloci = finalfile.count("|\n")
     npara = notkept.count("%P")
     ndups = notkept.count("%D")
     nMSNP = notkept.count("%S")
@@ -749,30 +809,33 @@ def DoStats(ingroup, outgroups, outname,
     print >>statsout, "total pis=",sum(pis)
 
 
-def makehaplos(WORK, outname, longname):
-    """TODO print gbs warning that haplos may not be
-    phased on non-overlapping segments"""
-    outfile = open(WORK+"outfiles/"+outname+".alleles", 'w')
-    lines = open(WORK+"outfiles/"+outname+".loci").readlines()
-    writing = []
-    loc = 0
-    for line in lines:
-        if ">" in line:
-            a,b = line.split(" ")[0],line.split(" ")[-1]
-            a1,a2 = breakalleles(b.strip())
-            writing.append(a+"_0"+" "*(longname-len(a)+3)+a1)
-            writing.append(a+"_1"+" "*(longname-len(a)+3)+a2)
-        else:
-            writing.append(line.strip())
-        loc += 1
+    
+# def makehaplos(WORK, outname, longname):
+#     """
+#     TODO print gbs warning that haplos may not be
+#     phased on non-overlapping segments.
+#     """
+#     outfile = open(WORK+"outfiles/"+outname+".alleles", 'w')
+#     lines = open(WORK+"outfiles/"+outname+".loci").readlines()
+#     writing = []
+#     loc = 0
+#     for line in lines:
+#         if ">" in line:
+#             a, b = line.split(" ")[0], line.split(" ")[-1]
+#             a1, a2 = breakalleles(b.strip())
+#             writing.append(a+"_0"+" "*(longname-len(a)+3)+a1)
+#             writing.append(a+"_1"+" "*(longname-len(a)+3)+a2)
+#         else:
+#             writing.append(line.strip())
+#         loc += 1
 
-        " print every 10K loci "
-        if not loc % 10000:
-            outfile.write("\n".join(writing)+"\n")
-            writing = []
+#         " print every 10K loci "
+#         if not loc % 10000:
+#             outfile.write("\n".join(writing)+"\n")
+#             writing = []
             
-    outfile.write("\n".join(writing))
-    outfile.close()
+#     outfile.write("\n".join(writing))
+#     outfile.close()
 
 
 
@@ -872,6 +935,11 @@ def main(outgroup, minspecies, outname,
     " find longest name for prettier output files "
     longname = max(map(len, list(ingroup)+list(outgroup)))
 
+    " make other formatted files "
+    if "*" in outform:
+        outform = ",".join(list("pnasvutmkgf"))
+    formats = outform.split(",")
+
     " check if output files already exist with this outname prefix "
     if os.path.exists(WORK+"outfiles/"+outname+".loci"):
         print "\n\tWarning: data set "+outname+".loci already exists"
@@ -884,17 +952,12 @@ def main(outgroup, minspecies, outname,
         locus = splitandalign(ingroup, minspecies, outname, infile,
                           MAXpoly, parallel, s1, s2, muscle,
                           exclude, overhang, WORK, CUT,
-                          a1, a2, datatype, longname, nloci)
+                          a1, a2, datatype, longname, nloci, formats)
 
         " make stats output "
         DoStats(ingroup, outgroup, outname, 
                 WORK, minspecies,longname)
 
-
-    " make other formatted files "
-    if "*" in outform:
-        outform = ",".join(list("pnasvutmkgf"))
-    formats = outform.split(",")
 
     " make phy, nex, SNP, uSNP, structure"
     try:
@@ -939,9 +1002,9 @@ def main(outgroup, minspecies, outname,
         loci2vcf.make(WORK, version, outname, mindepth, names)
     
     " make alleles output "
-    if "a" in formats:
-        print "\twriting alleles file"
-        makehaplos(WORK,outname,longname)
+    #if "a" in formats:
+    #    print "\twriting alleles file"
+    #    makehaplos(WORK,outname,longname)
     
     " make migrate output "
     if 'm' in formats:

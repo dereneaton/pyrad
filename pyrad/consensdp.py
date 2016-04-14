@@ -128,19 +128,21 @@ def findalleles(consensus,sss,bbb):
 
 
 def breakalleles(consensus):
-    """ break ambiguity code consensus seqs
-    into two alleles """
+    """
+    break ambiguity code consensus seqs
+    into two alleles
+    """
     a1 = ""
     a2 = ""
-    bigbase = ""
+    #bigbase = ""
     for base in consensus:
         if base in tuple("RKSYWM"):
             a,b = unhetero(base)
             d = set([a,b])
             a1 += uplow((a,b))
             a2 += d.difference(uplow((a,b))).pop()
-            if not bigbase:
-                bigbase = uplow((a,b))
+            #if not bigbase:
+            #    bigbase = uplow((a,b))
         elif base in tuple("rksywm"):
             a,b = unhetero(base)
             d = set([a,b])
@@ -149,9 +151,14 @@ def breakalleles(consensus):
         else:
             a1 += base
             a2 += base
-    return a1,a2
+    return a1, a2
 
 
+# correct               G                                             A      C
+# >1D_0_0  CCTGCGTCGGGG G ATCCGTCTTATCTAAGCGGACAATAGCGGCAAACGCTCATAGT T CAAC G ACGTGACGCCGAACACCACCTCTAACC
+# >1D_0_1  CCTGCGTCGGGG T ATCCGTCTTATCTAAGCGGACAATAGCGGCAAACGCTCATAGT A CAAC C ACGTGACGCCGAACACCACCTCTAACC
+
+# >1D_0    CCTGCGTCGGGG K ATCCGTCTTATCTAAGCGGACAATAGCGGCAAACGCTCATAGT W CAAC S ACGTGACGCCGAACACCACCTCTAACC
 
 def stack(D):
     """
