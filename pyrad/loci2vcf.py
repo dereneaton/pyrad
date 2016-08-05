@@ -61,7 +61,7 @@ def make(WORK, version, outname, mindepth, names):
                             GENOS.append("./.")
                     vcflist.append("\t".join([`locusnumber+1`, `base+1`, '.', REF, ",".join(ALT), "20", "PASS",
                                               ";".join(["NS="+NS, "DP="+DP]), "GT"]+GENOS))
-        if not locusnumber % 1000:
+        if vcflist and not locusnumber % 1000:
             outfile.write( "\n".join(vcflist)+"\n" )
             vcflist = []
                                               
@@ -69,7 +69,7 @@ def make(WORK, version, outname, mindepth, names):
                     #                            ";".join(["NS="+NS, "DP="+DP]), "GT"]+GENOS)
     
 
-    outfile.write( "\n".join(vcflist) )
+    outfile.write( "\n".join(vcflist)+"\n" )
     outfile.close()
 
 if __name__ == "__main__":
