@@ -1,3 +1,14 @@
+
+pyrad has now been superceded by *ipyrad*
+==========================================
+(http://ipyrad.readthedocs.io)  <-- see here
+
+All new development will be made on ipyrad 
+and I recommend that pyrad users switch over. The new software
+offers huge speed improvements and many new features. 
+
+
+
 pyrad
 =====
 
