@@ -24,7 +24,7 @@ def make(WORK, version, outname, mindepth, names):
     print >>outfile, "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">"
     print >>outfile, "\t".join(["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO    ","FORMAT"]+list(names))
 
-    loci = open(inloci).read().split("|")[:-1]
+    loci = open(inloci).read().split("|\n")[:-1]
     snps = 0
     vcflist = []
     for locusnumber in range(len(loci)):
